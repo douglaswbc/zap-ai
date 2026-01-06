@@ -60,6 +60,60 @@ const BillingPage: React.FC<BillingPageProps> = ({ showToast }) => {
     return Object.entries(dailyData).map(([name, total]) => ({ name, total })).slice(-7);
   }, [invoices]);
 
+  // 1. EFEITO DE POLLING: Verifica o status do pagamento no Sicredi
+useEffect(() => {
+  let interval: NodeJS.Timeout;
+
+  // Só inicia o polling se o modal estiver aberto, houver um pixCharge e não estiver pago
+  if (selectedInvoice && pixCharge && !isPaid) {
+    interval = setInterval(async () => {
+      try {
+        const status = await api.billing.checkPaymentStatus(pixCharge.txid);
+        
+        // Se o status for positivo, interrompe o polling e atualiza a UI
+        if (['CONCLUIDA', 'PAGO', 'CONCLUIDO'].includes(status?.toUpperCase())) {
+          setIsPaid(true);
+          showToast('Pagamento confirmado com sucesso!', 'success');
+          loadData(); // Atualiza a tabela e os gráficos ao fundo
+          clearInterval(interval);
+        }
+      } catch (error) {
+        console.error("Erro no polling do PIX:", error);
+      }
+    }, 7000); // Verifica a cada 7 segundos
+  }
+
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}, [selectedInvoice, pixCharge, isPaid]);
+
+// 2. EFEITO DE COUNTDOWN: Atualiza o tempo restante do QR Code
+useEffect(() => {
+  let timer: NodeJS.Timeout;
+
+  if (selectedInvoice && pixCharge && !isPaid) {
+    timer = setInterval(() => {
+      const now = new Date().getTime();
+      const expiration = new Date(pixCharge.data_expiracao).getTime();
+      const diff = expiration - now;
+
+      if (diff <= 0) {
+        setTimeLeft('EXPIRADO');
+        clearInterval(timer);
+      } else {
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+      }
+    }, 1000);
+  }
+
+  return () => {
+    if (timer) clearInterval(timer);
+  };
+}, [selectedInvoice, pixCharge, isPaid]);
+
   const handleAddSurcharge = async () => {
     if (!surchargeModal) return;
     try {

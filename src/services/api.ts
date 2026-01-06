@@ -384,32 +384,49 @@ export const api = {
         content: text,
       });
     },
+
+    resetChat: async (conversationId: string) => {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      if (error) throw error;
+
+      // Opcional: Limpar a última mensagem na tabela de conversas
+      await supabase
+        .from('conversations')
+        .update({ last_message: 'Histórico limpo' })
+        .eq('id', conversationId);
+    },
   },
 
   /* ================= APPOINTMENTS ================= */
   appointments: {
     list: async (user: User) => {
-      const cid = getTargetId(user);
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('*, contacts(id,name,cpf), services(id,name,price), professionals(id,name)')
-        .eq('company_id', cid)
-        .order('appointment_date');
+    const cid = getTargetId(user);
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*, contacts(id,name,cpf), services(id,name,price), professionals(id,name)')
+      .eq('company_id', cid)
+      .order('appointment_date');
 
-      if (error) throw error;
-      return (data || []).map((ap) => ({
-        ...ap,
-        contactId: ap.contact_id,
-        serviceId: ap.service_id,
-        professionalId: ap.professional_id,
-        date: ap.appointment_date,
-        time: ap.appointment_time,
-        contactName: ap.contacts?.name || 'Cliente',
-        serviceName: ap.services?.name || 'Serviço',
-        professionalName: ap.professionals?.name || 'Profissional',
-        price: ap.services?.price || 0,
-      }));
-    },
+    if (error) throw error;
+    
+    return (data || []).map((ap) => ({
+      ...ap,
+      contactId: ap.contact_id,
+      serviceId: ap.service_id,
+      professionalId: ap.professional_id,
+      date: ap.appointment_date,
+      time: ap.appointment_time,
+      contactName: ap.contacts?.name || 'Cliente',
+      contactCpf: ap.contacts?.cpf || '', 
+      serviceName: ap.services?.name || 'Serviço',
+      professionalName: ap.professionals?.name || 'Profissional',
+      price: ap.services?.price || 0,
+    }));
+  },
 
     save: async (formData: any, user: User, editingId: string | null) => {
     const payload = {
@@ -697,84 +714,83 @@ export const api = {
     },
 
     createInvoiceWithPix: async (apt: any) => {
-      const { data: existingPix } = await supabase
-        .from('pix_charges')
-        .select('*, invoices!inner(*)')
-        .eq('invoices.appointment_id', apt.id)
-        .gt(
-          'data_expiracao',
-          new Date().toISOString()
-        )
-        .maybeSingle();
+  // 1. Verifica se já existe um PIX ativo para este agendamento (Cache)
+  const { data: existingPix } = await supabase
+    .from('pix_charges')
+    .select('*, invoices!inner(*)')
+    .eq('invoices.appointment_id', apt.id)
+    .gt('data_expiracao', new Date().toISOString())
+    .maybeSingle();
 
-      if (existingPix) {
-        return {
-          txid: existingPix.txid,
-          pixCopiaECola: existingPix.qrcode_copia_cola,
-          valor: existingPix.valor_original,
-          dataExpiracao: existingPix.data_expiracao,
-          fromCache: true,
-        };
-      }
+  if (existingPix) {
+    return {
+      txid: existingPix.txid,
+      pixCopiaECola: existingPix.qrcode_copia_cola,
+      valor: existingPix.valor_original,
+      dataExpiracao: existingPix.data_expiracao,
+      fromCache: true,
+    };
+  }
 
-      const response = await fetch(
-        GERAR_FATURA_WEBHOOK_URL,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            appointment_id: apt.id,
-            contact_id:
-              apt.contact_id || apt.contactId,
-            valor: apt.price,
-            nome_cliente: apt.contactName,
-            cpf: apt.contactCpf,
-          }),
-        }
-      );
+  // 2. Chamada Direta ao Webhook do n8n (com a URL da variável de ambiente)
+  const response = await fetch(GERAR_FATURA_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      appointment_id: apt.id,
+      contact_id: apt.contact_id || apt.contactId,
+      valor: apt.price,
+      nome_cliente: apt.contactName,
+      cpf: apt.contactCpf, // CPF enviado aqui
+    }),
+  });
 
-      if (!response.ok) {
-        throw new Error('Erro no Webhook do Sicredi');
-      }
+  if (!response.ok) {
+    throw new Error('Erro ao chamar o Webhook de faturamento');
+  }
 
-      const data = await response.json();
-      const res = data[0]?.response;
+  const data = await response.json();
+  
+  // Tratamento da resposta do n8n (geralmente vem em array [0])
+  const res = data[0]?.response || data.response;
 
-      const { data: newInv, error: invError } =
-        await supabase
-          .from('invoices')
-          .upsert(
-            {
-              appointment_id: apt.id,
-              contact_id:
-                apt.contact_id || apt.contactId,
-              valor: Number(res.valor_original),
-              company_id: apt.company_id,
-              status_fatura: 'Aberta',
-            },
-            { onConflict: 'appointment_id' }
-          )
-          .select()
-          .single();
+  if (!res) throw new Error('Resposta do Sicredi inválida através do n8n');
 
-      if (invError) throw invError;
+  // 3. Salva a Fatura no Banco de Dados (Supabase)
+  const { data: newInv, error: invError } = await supabase
+    .from('invoices')
+    .upsert(
+      {
+        appointment_id: apt.id,
+        contact_id: apt.contact_id || apt.contactId,
+        valor: Number(res.valor_original),
+        company_id: apt.company_id,
+        status_fatura: 'Aberta',
+      },
+      { onConflict: 'appointment_id' }
+    )
+    .select()
+    .single();
 
-      await supabase.from('pix_charges').upsert({
-        txid: res.txid,
-        invoice_id: newInv.id,
-        status_sicredi: 'PENDENTE',
-        valor_original: res.valor_original,
-        qrcode_copia_cola: res.pixCopiaECola,
-        data_expiracao: res.dataExpiracao,
-      });
+  if (invError) throw invError;
 
-      return {
-        txid: res.txid,
-        pixCopiaECola: res.pixCopiaECola,
-        valor: res.valor_original,
-        dataExpiracao: res.dataExpiracao,
-      };
-    },
+  // 4. Salva os detalhes do PIX na tabela pix_charges
+  await supabase.from('pix_charges').upsert({
+    txid: res.txid,
+    invoice_id: newInv.id,
+    status_sicredi: 'PENDENTE',
+    valor_original: res.valor_original,
+    qrcode_copia_cola: res.pixCopiaECola,
+    data_expiracao: res.dataExpiracao,
+  });
+
+  return {
+    txid: res.txid,
+    pixCopiaECola: res.pixCopiaECola,
+    valor: res.valor_original,
+    dataExpiracao: res.dataExpiracao,
+  };
+},
 
     checkPaymentStatus: async (txid: string) => {
       const response = await fetch(
@@ -833,32 +849,104 @@ export const api = {
 
 /* ================= SETTINGS ================= */
   settings: {
-    get: async (user: User) => {
-      const { data, error } = await supabase.from('settings').select('*').eq('company_id', getTargetId(user)).maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    save: async (user: User, formData: any) => {
-      const { error } = await supabase.from('settings').upsert({
-        company_id: getTargetId(user),
-        business_hours_start: formData.businessHoursStart,
-        business_hours_end: formData.businessHoursEnd,
-        working_days: formData.workingDays,
-        offline_message: formData.offlineMessage,
-        address: formData.address, website: formData.website, instagram: formData.instagram,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'company_id' });
-      if (error) throw error;
-    },
-    // Função para desconectar
-    disconnectGoogle: async (user: User) => {
-      const { error } = await supabase.from('users_profile')
-        .update({ google_connected: false, google_refresh_token: null, google_calendar_id: null })
-        .eq('id', user.id);
-      if (error) throw error;
-    }
+  get: async (user: User) => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('company_id', getTargetId(user))
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
   },
+
+  save: async (user: User, formData: any) => {
+    const { error } = await supabase.from('settings').upsert({
+      company_id: getTargetId(user),
+      // Mapeamento dos campos de horário e dias
+      business_hours_start: formData.businessHoursStart || formData.business_hours_start,
+      business_hours_end: formData.businessHoursEnd || formData.business_hours_end,
+      working_days: formData.workingDays || formData.working_days,
+      
+      // Mensagem e informações institucionais
+      offline_message: formData.offlineMessage || formData.offline_message,
+      address: formData.address,
+      website: formData.website,
+      instagram: formData.instagram,
+      
+      // NOVOS CAMPOS ADICIONADOS AQUI:
+      informacoes: formData.informacoes, 
+      is_24h: formData.is24h ?? formData.is_24h ?? false, 
+      
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'company_id' });
+
+    if (error) throw error;
+  },
+
+  // Função para desconectar Google permanece igual
+  disconnectGoogle: async (user: User) => {
+    const { error } = await supabase.from('users_profile')
+      .update({ 
+        google_connected: false, 
+        google_refresh_token: null, 
+        google_calendar_id: null 
+      })
+      .eq('id', user.id);
+      
+    if (error) throw error;
+  }
+},
   
+/* ================= LEADS / CRM ================= */
+leads: {
+  // Alterar entre IA e Humano, criando a conversa se não existir
+  toggleAtendimento: async (lead: any, isHuman: boolean) => {
+    // 1. Tenta buscar uma conversa existente para este contato
+    const { data: existingConv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', lead.id)
+      .maybeSingle();
+
+    if (existingConv) {
+      // Se existe, apenas atualiza o status
+      const { error } = await supabase
+        .from('conversations')
+        .update({ is_human_active: isHuman })
+        .eq('id', existingConv.id);
+      
+      if (error) throw error;
+      return existingConv.id;
+    } else {
+      // 2. Se não existe (lead novo), precisamos vincular a uma instância
+      const { data: inst } = await supabase
+        .from('instances')
+        .select('id')
+        .eq('company_id', lead.company_id)
+        .limit(1)
+        .single();
+
+      if (!inst) throw new Error("Nenhuma instância de WhatsApp configurada para esta empresa.");
+
+      // Criamos a conversa inicial
+      const { data: newConv, error: convErr } = await supabase
+        .from('conversations')
+        .insert({
+          contact_id: lead.id,
+          instance_id: inst.id,
+          is_human_active: isHuman,
+          last_message: 'Atendimento iniciado manualmente via CRM'
+        })
+        .select()
+        .single();
+
+      if (convErr) throw convErr;
+      return newConv.id;
+    }
+  }
+},
+
   /* ================= HELPERS ================= */
   helpers: {
     fetchFormDeps: async (user: User) => {

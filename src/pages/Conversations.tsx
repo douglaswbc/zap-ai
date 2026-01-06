@@ -108,6 +108,27 @@ const ConversationsPage: React.FC<ConversationsProps> = ({ showToast }) => {
     }
   };
 
+  // --- NOVA FUNÇÃO DE RESET ---
+  const handleResetChat = async () => {
+    if (!selectedChat) return;
+    
+    const confirm = window.confirm("Tem certeza que deseja apagar TODO o histórico desta conversa? Esta ação não pode ser desfeita.");
+    
+    if (confirm) {
+      try {
+        await api.messages.resetChat(selectedChat.id);
+        setMessages([]); // Limpa a tela na hora
+        showToast('Histórico de mensagens removido!', 'success');
+        loadConversations(); // Atualiza a lista lateral
+      } catch (error) {
+        showToast('Erro ao resetar chat.', 'error');
+      }
+    }
+  };
+
+  // Verificação de permissão para o botão
+  const canReset = ['admin', 'company'].includes(user?.role?.toLowerCase() || '');
+
 return (
     <div className="flex h-full overflow-hidden bg-white relative">
       
@@ -194,12 +215,23 @@ return (
               </div>
               
               <div className="flex items-center gap-2">
+                {/* BOTÃO DE RESET (Apenas para Admin e Company) */}
+                {canReset && (
+                  <button 
+                    onClick={handleResetChat}
+                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                    title="Resetar Histórico"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+
                 <button 
                   onClick={() => toggleAIStatus(!selectedChat.is_human_active)} 
                   className={`px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold transition-all ${
-                    selectedChat.is_human_active 
-                    ? 'bg-indigo-100 text-indigo-600' 
-                    : 'bg-slate-900 text-white'
+                    selectedChat.is_human_active ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-900 text-white'
                   }`}
                 >
                   {selectedChat.is_human_active ? 'Reativar IA' : 'Assumir'}

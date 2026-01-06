@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes as RouterRoutes, Route, Navigate } from 'react-router-dom'; // Renomeado para evitar conflito
+import { Routes as RouterRoutes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import Layout from "./lib/layout";
 
@@ -13,7 +13,8 @@ import BillingPage from "@/pages/Billing";
 import AgentsPage from "@/pages/AgentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import Management from './pages/Management';
-import GoogleCallback from '@/pages/GoogleCallback'; // Importe a página que criamos
+import LeadsPage from './pages/LeadsPage'; // IMPORTADO
+import GoogleCallback from '@/pages/GoogleCallback';
 
 import { ToastType } from '@/components/Toast';
 
@@ -21,12 +22,12 @@ interface RoutesProps {
   showToast: (msg: string, type: ToastType) => void;
 }
 
-// Mapeamento centralizado de permissões
+// Adicionado 'leads' nos perfis permitidos
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['dashboard', 'conversations', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
-  company: ['dashboard', 'conversations', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
+  admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
+  company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
   profissional: ['conversations', 'calendar'],
-  operador: ['conversations', 'calendar', 'billing', 'business', 'agents']
+  operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents']
 };
 
 const Routes: React.FC<RoutesProps> = ({ showToast }) => {
@@ -37,7 +38,6 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
     if (user) {
       const userRole = user.role?.toLowerCase();
       const allowedTabs = ROLE_PERMISSIONS[userRole] || [];
-      
       if (!allowedTabs.includes(activeTab)) {
         setActiveTab(allowedTabs[0] || 'conversations');
       }
@@ -52,7 +52,6 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
     );
   }
 
-  // Se não estiver logado e NÃO for a rota do Google, mostra login
   if (!user && window.location.pathname !== '/google-callback') {
     return <LoginPage onLogin={login} showToast={showToast} />;
   }
@@ -68,6 +67,7 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
     switch (activeTab) {
       case 'dashboard': return <InstancesPage showToast={showToast} />;
       case 'conversations': return <ConversationsPage showToast={showToast} />;
+      case 'leads': return <LeadsPage showToast={showToast} setActiveTab={setActiveTab} />;
       case 'calendar': return <CalendarPage showToast={showToast} />;
       case 'billing': return <BillingPage showToast={showToast} />;
       case 'business': return <BusinessPage showToast={showToast} />;
@@ -80,23 +80,12 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
 
   return (
     <RouterRoutes>
-      {/* Rota especial do Google - Renderiza SEM o Layout */}
-      <Route 
-        path="/google-callback" 
-        element={<GoogleCallback showToast={showToast} />} 
-      />
-
-      {/* Rota principal do App - Renderiza COM o Layout */}
+      <Route path="/google-callback" element={<GoogleCallback showToast={showToast} />} />
       <Route 
         path="*" 
         element={
           user ? (
-            <Layout 
-              user={user} 
-              activeTab={activeTab} 
-              setActiveTab={setActiveTab} 
-              onLogout={logout}
-            >
+            <Layout user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={logout}>
               {renderTabContent()}
             </Layout>
           ) : (
