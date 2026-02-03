@@ -1,0 +1,7 @@
+{
+  "name": "ZapAI SaaS Manager",
+  "description": "A high-performance SaaS dashboard for managing WhatsApp instances with integrated Gemini AI agents, real-time chat, and automated customer service workflows.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
