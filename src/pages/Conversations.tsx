@@ -187,8 +187,9 @@ const ConversationsPage: React.FC<ConversationsProps> = ({ showToast }) => {
 
       {/* Sidebar Lateral */}
       <div className={`
-        ${selectedChat ? 'hidden md:flex' : 'flex'} 
-        w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex-col shrink-0
+        flex-col shrink-0 bg-white border-r border-slate-200
+        w-full md:w-80 lg:w-96
+        ${selectedChat ? 'hidden md:flex' : 'flex'}
       `}>
         <div className="p-6 border-b border-slate-100">
           <div className="flex justify-between items-center mb-4">
@@ -255,8 +256,8 @@ const ConversationsPage: React.FC<ConversationsProps> = ({ showToast }) => {
 
       {/* Janela de Chat */}
       <div className={`
-        ${selectedChat ? 'flex' : 'hidden md:flex'} 
-        flex-1 flex flex-col bg-slate-50/50
+        flex-1 flex-col min-w-0 bg-slate-50/50
+        ${selectedChat ? 'flex' : 'hidden md:flex'}
       `}>
         {selectedChat ? (
           <>
