@@ -87,18 +87,19 @@ export const api = {
     listProfiles: async (user: User) => {
       if (!user?.id) return [];
 
-      // Iniciamos a query simples
-      let query = supabase.from('users_profile').select('*');
+      // Buscamos o perfil e tentamos trazer o nome da empresa vinculada (auto-relacionamento)
+      let query = supabase
+        .from('users_profile')
+        .select('*, company:company_id(name)');
 
-      // O RLS (que corrigimos acima) já vai filtrar automaticamente o que o utilizador pode ver.
-      // Mas para facilitar a UI, podemos adicionar filtros manuais:
-      if (user.role === 'admin') {
-        // Admin quer ver apenas quem é Empresa (contas principais)
-        query = query.eq('role', 'company');
-      } else if (user.role === 'company') {
+      if (user.role === 'company') {
         // Empresa quer ver os seus colaboradores
         query = query.eq('company_id', user.id);
+      } else if (user.role !== 'admin') {
+        // Outras roles não deveriam listar perfis, mas por segurança filtramos pelo ID deles
+        query = query.eq('id', user.id);
       }
+      // Admins veem tudo por padrão, o filtro será feito no Frontend para melhor UX.
 
       const { data, error } = await query.order('name');
       if (error) throw error;
@@ -673,6 +674,12 @@ export const api = {
         is_multi_agent: agentData.isMultiAgent ?? agentData.is_multi_agent ?? false,
         parent_agent_id: agentData.parentAgentId ?? agentData.parent_agent_id ?? null,
         knowledge_base: agentData.knowledge_base ?? '',
+        papel: agentData.papel ?? '',
+        acao: agentData.acao ?? '',
+        contexto: agentData.contexto ?? '',
+        regras: agentData.regras ?? '',
+        intencao: agentData.intencao ?? '',
+        formato: agentData.formato ?? '',
         temperature: parseFloat(agentData.temperature) || 0,
         presence_penalty: parseFloat(agentData.presence_penalty) || 0.6
       };

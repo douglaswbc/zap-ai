@@ -24,7 +24,7 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
   });
 
   const [staffForm, setStaffForm] = useState({
-    name: '', role: '', specialty: '', 
+    name: '', role: '', specialty: '',
     work_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"],
     start_time: '08:00', end_time: '18:00'
   });
@@ -40,20 +40,20 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
       } else {
         // 4. Passar user para a listagem
         const result = await api.business.services.list(user);
-        const filtered = result?.filter((i: any) => 
+        const filtered = result?.filter((i: any) =>
           activeSubTab === 'services' ? i.category === 'SERVICE' : i.category === 'PRODUCT'
         );
         setItems(filtered || []);
       }
     } catch (error) {
       showToast('Erro ao carregar dados', 'error');
-    } finally { 
-      setIsLoading(false); 
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => { 
-    if (user) loadData(); 
+  useEffect(() => {
+    if (user) loadData();
   }, [activeSubTab, user]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -63,8 +63,8 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
     try {
       // 5. Injetar o ID da empresa no payload antes de salvar
       const companyId = user.company_id || user.id;
-      const payload = activeSubTab === 'staff' 
-        ? { ...staffForm, company_id: companyId } 
+      const payload = activeSubTab === 'staff'
+        ? { ...staffForm, company_id: companyId }
         : { ...itemForm, company_id: companyId };
 
       await api.business[activeSubTab === 'staff' ? 'professionals' : 'services'].upsert({
@@ -87,10 +87,10 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
       if (activeSubTab === 'staff') {
         setStaffForm({ name: '', role: '', specialty: '', work_days: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"], start_time: '08:00', end_time: '18:00' });
       } else {
-        setItemForm({ 
-          name: '', description: '', price: 0, 
-          category: activeSubTab === 'services' ? 'SERVICE' : 'PRODUCT', 
-          duration_minutes: 30 
+        setItemForm({
+          name: '', description: '', price: 0,
+          category: activeSubTab === 'services' ? 'SERVICE' : 'PRODUCT',
+          duration_minutes: 30
         });
       }
     }
@@ -154,7 +154,7 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
               {/* Botões de Ação Staff */}
               <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => openModal(p)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" strokeWidth="2" /></svg></button>
-                <button onClick={() => handleDelete(p.id)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-rose-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth="2" /></svg></button>
+                <button onClick={() => handleDelete(p.id)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-rose-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeWidth="2" /></svg></button>
               </div>
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-bold text-xl">{p.name.charAt(0)}</div>
@@ -164,7 +164,7 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
                 <div className="flex justify-between items-center"><span className="text-slate-400">HORÁRIO</span><span>{p.start_time} - {p.end_time}</span></div>
                 <div className="flex flex-wrap gap-1">
                   {WEEK_DAYS.map(day => (
-                    <span key={day} className={`px-2 py-1 rounded-md text-[9px] ${p.work_days.includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-300'}`}>{day.substring(0,3)}</span>
+                    <span key={day} className={`px-2 py-1 rounded-md text-[9px] ${p.work_days.includes(day) ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-300'}`}>{day.substring(0, 3)}</span>
                   ))}
                 </div>
               </div>
@@ -183,21 +183,21 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
                 <>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-400 uppercase">Nome</label>
-                    <input required value={itemForm.name} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium" onChange={e => setItemForm({...itemForm, name: e.target.value})} />
+                    <input required value={itemForm.name} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium" onChange={e => setItemForm({ ...itemForm, name: e.target.value })} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase">Preço (R$)</label>
-                      <input type="number" required value={itemForm.price || ''} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setItemForm({...itemForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value)})} />
+                      <input type="number" required value={itemForm.price || ''} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setItemForm({ ...itemForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })} />
                     </div>
                     {/* Só mostra duração se for serviço */}
                     {activeSubTab === 'services' && (
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-slate-400 uppercase">Duração Estimada</label>
-                        <select 
-                          value={itemForm.duration_minutes} 
-                          className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
-                          onChange={e => setItemForm({...itemForm, duration_minutes: parseInt(e.target.value)})}
+                        <select
+                          value={itemForm.duration_minutes}
+                          className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                          onChange={e => setItemForm({ ...itemForm, duration_minutes: parseInt(e.target.value) })}
                         >
                           <option value="15">15 minutos</option>
                           <option value="30">30 minutos</option>
@@ -211,7 +211,7 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-400 uppercase">Descrição</label>
-                    <textarea rows={3} value={itemForm.description} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 resize-none" onChange={e => setItemForm({...itemForm, description: e.target.value})} />
+                    <textarea rows={3} value={itemForm.description} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 resize-none" onChange={e => setItemForm({ ...itemForm, description: e.target.value })} />
                   </div>
                 </>
               ) : (
@@ -219,11 +219,11 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase">Nome</label>
-                      <input required value={staffForm.name} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({...staffForm, name: e.target.value})} />
+                      <input required value={staffForm.name} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase">Cargo</label>
-                      <input required value={staffForm.role} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({...staffForm, role: e.target.value})} />
+                      <input required value={staffForm.role} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({ ...staffForm, role: e.target.value })} />
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -233,8 +233,8 @@ const BusinessPage: React.FC<BusinessPageProps> = ({ showToast }) => {
                     ))}</div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <input type="time" value={staffForm.start_time} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({...staffForm, start_time: e.target.value})} />
-                    <input type="time" value={staffForm.end_time} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({...staffForm, end_time: e.target.value})} />
+                    <input type="time" value={staffForm.start_time} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({ ...staffForm, start_time: e.target.value })} />
+                    <input type="time" value={staffForm.end_time} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500" onChange={e => setStaffForm({ ...staffForm, end_time: e.target.value })} />
                   </div>
                 </>
               )}

@@ -11,17 +11,17 @@ export const useAuth = () => {
   const fetchProfile = async (basicUser: any) => {
     const { data: profile, error } = await supabase
       .from('users_profile')
-      .select('role, company_id, name, google_connected')
+      .select('role, company_id, name, email, google_connected')
       .eq('id', basicUser.id)
       .single();
 
     if (!error && profile) {
-      return { 
-        ...basicUser, 
+      return {
+        ...basicUser,
         name: profile.name || basicUser.name,
         role: profile.role as UserRole,
         company_id: profile.company_id,
-        google_connected: profile.google_connected 
+        google_connected: profile.google_connected
       };
     }
     return basicUser;

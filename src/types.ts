@@ -7,6 +7,8 @@ export interface User {
   name: string;
   role: UserRole;
   company_id?: string;
+  google_connected?: boolean;
+  google_calendar_id?: string;
 }
 
 export interface Instance {
@@ -15,7 +17,7 @@ export interface Instance {
   token: string;     // Hash/apikey da Evolution API
   company_id: string;
   agent_id?: string;
-  status: string;    
+  status: string;
   phoneNumber?: string;
   qrCode?: string;
 }
@@ -50,6 +52,15 @@ export interface Agent {
   id: string;
   name: string;
   prompt: string;
+  papel?: string;
+  acao?: string;
+  contexto?: string;
+  regras?: string;
+  intencao?: string;
+  formato?: string;
+  knowledge_base?: string;
+  temperature?: number;
+  presence_penalty?: number;
   enableAudio: boolean;
   enableImage: boolean;
   isMultiAgent: boolean;
