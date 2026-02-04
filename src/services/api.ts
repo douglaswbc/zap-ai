@@ -672,6 +672,7 @@ export const api = {
         enable_image: agentData.enableImage ?? agentData.enable_image ?? false,
         is_multi_agent: agentData.isMultiAgent ?? agentData.is_multi_agent ?? false,
         parent_agent_id: agentData.parentAgentId ?? agentData.parent_agent_id ?? null,
+        knowledge_base: agentData.knowledge_base ?? '',
         temperature: parseFloat(agentData.temperature) || 0,
         presence_penalty: parseFloat(agentData.presence_penalty) || 0.6
       };
