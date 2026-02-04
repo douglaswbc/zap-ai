@@ -41,11 +41,7 @@ serve(async (req) => {
 
     // 2. Context
     const { data: inst } = await supabase.from("instances").select("name, token, company_id, agent_id").eq("id", instance_id).single();
-    console.log(`[Instance]: Name=${inst?.name}, AgentID=${inst?.agent_id}`);
-
     const { data: agent } = await supabase.from("agents").select("prompt, knowledge_base, temperature").eq("id", inst.agent_id).single();
-    console.log(`[Agent]: Found=${!!agent}, KB_Length=${agent?.knowledge_base?.length || 0}`);
-
     const { data: settings } = await supabase.from("settings").select("*").eq("company_id", inst.company_id).maybeSingle();
 
     const businessContext = `
@@ -58,7 +54,93 @@ serve(async (req) => {
     `;
 
     // 3. Tools Definitions
-    // ... (rest of tools)
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "list_services",
+          description: "Lista todos os serviços e preços da empresa.",
+          parameters: { type: "object", properties: {} }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_professionals",
+          description: "Lista os profissionais disponíveis.",
+          parameters: { type: "object", properties: {} }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_available_slots",
+          description: "Busca horários disponíveis para um profissional em uma data.",
+          parameters: {
+            type: "object",
+            properties: {
+              professional_id: { type: "string" },
+              service_id: { type: "string" },
+              date: { type: "string", description: "Formato YYYY-MM-DD" }
+            },
+            required: ["professional_id", "service_id", "date"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_appointment",
+          description: "Realiza o agendamento de um serviço.",
+          parameters: {
+            type: "object",
+            properties: {
+              service_id: { type: "string" },
+              professional_id: { type: "string" },
+              date: { type: "string" },
+              time: { type: "string", description: "Formato HH:mm" }
+            },
+            required: ["service_id", "professional_id", "date", "time"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "generate_payment",
+          description: "Gera um código PIX para pagamento de um agendamento.",
+          parameters: {
+            type: "object",
+            properties: {
+              appointment_id: { type: "string" }
+            },
+            required: ["appointment_id"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "check_payment_status",
+          description: "Verifica se o pagamento de um agendamento foi confirmado.",
+          parameters: {
+            type: "object",
+            properties: {
+              appointment_id: { type: "string" }
+            },
+            required: ["appointment_id"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "list_my_appointments",
+          description: "Consulta os agendamentos realizados pelo usuário atual.",
+          parameters: { type: "object", properties: {} }
+        }
+      }
+    ];
 
     // 4. OpenAI Loop
     const { data: history } = await supabase.from("messages").select("sender, content").eq("conversation_id", conversation_id).order("timestamp", { ascending: false }).limit(10);
@@ -67,14 +149,10 @@ serve(async (req) => {
     const nowBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const currentDateTimeStr = nowBR.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 
-    const knowledgeContext = agent?.knowledge_base
-      ? `\n\n[BASE DE CONHECIMENTO]\nUtilize as informações abaixo para responder dúvidas técnicas ou sobre a empresa:\n${agent.knowledge_base}`
-      : "";
-
     let messages = [
       {
         role: "system", content: (agent?.prompt || "") +
-          knowledgeContext +
+          (agent?.knowledge_base ? `\n\n[BASE DE CONHECIMENTO]\n${agent.knowledge_base}` : "") +
           "\n" + businessContext + `\nData/Hora atual (Brasília): ${currentDateTimeStr}` + `\n\nINSTRUÇÕES IMPORTANTES:
 1. Se precisar do ID de um agendamento para gerar pagamento ou verificar status, use a ferramenta 'list_my_appointments' primeiro para encontrar os agendamentos do usuário. NÃO peça o ID ao usuário se você puder encontrá-lo.
 2. Identifique claramente o ID_DO_AGENDAMENTO e o TXID nas suas respostas quando gerá-los.
