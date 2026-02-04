@@ -395,7 +395,24 @@ serve(async (req) => {
                     await supabase.from('pix_charges').update({ status_sicredi: 'CONCLUIDA' }).eq('txid', realTxid);
                   }
 
-                  result = `Status do pagamento para o agendamento ${aptData.id}: CONCLUÍDA. O agendamento e o financeiro foram atualizados com sucesso.`;
+                  // 5. Trigger Google Calendar Sync
+                  console.log(`[Tools]: Triggering Google Calendar Sync for Appointment: ${aptData.id}`);
+                  try {
+                    const syncRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/google-calendar-sync`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ appointmentId: aptData.id })
+                    });
+                    const syncData = await syncRes.json();
+                    console.log(`[Tools]: Calendar Sync Response:`, JSON.stringify(syncData));
+                  } catch (syncErr) {
+                    console.error(`[Tools]: Failed to trigger Calendar Sync:`, syncErr.message);
+                  }
+
+                  result = `Status do pagamento para o agendamento ${aptData.id}: CONCLUÍDA. O agendamento foi confirmado e sincronizado com o calendário.`;
                 } else {
                   console.log(`[Tools]: Pagamento ainda pendente: ${statusClean}`);
                   result = `Status do pagamento para o agendamento ${aptData.id} (TXID: ${txid || 'Não encontrado'}): ${statusRaw || 'Pendente'}`;
