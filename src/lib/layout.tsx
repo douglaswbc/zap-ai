@@ -22,6 +22,7 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
     business: 'Catálogo & Equipe',
     agents: 'Agentes de IA',
     management: 'Gestão do Sistema',
+    instagram: 'Gestão Instagram',
     settings: 'Configurações'
   };
 
@@ -29,7 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       {/* Overlay mobile */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[40] lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -40,25 +41,25 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
         fixed lg:static inset-y-0 left-0 z-[50] transform transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <Sidebar 
-          user={user} 
-          activeTab={activeTab} 
+        <Sidebar
+          user={user}
+          activeTab={activeTab}
           setActiveTab={(tab) => {
             setActiveTab(tab);
             setIsSidebarOpen(false);
-          }} 
-          onLogout={onLogout} 
+          }}
+          onLogout={onLogout}
         />
       </div>
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar agora gerencia seu próprio botão de menu e ocupa w-full corretamente */}
-        <Topbar 
-          user={user} 
-          title={titles[activeTab] || 'Painel de Controle'} 
+        <Topbar
+          user={user}
+          title={titles[activeTab] || 'Painel de Controle'}
           onOpenMenu={() => setIsSidebarOpen(true)}
         />
-        
+
         <main className="flex-1 overflow-hidden relative animate-in fade-in duration-500">
           {children}
         </main>

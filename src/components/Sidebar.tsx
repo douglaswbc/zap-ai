@@ -22,14 +22,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
     { id: 'business', label: 'Negócio', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
     { id: 'agents', label: 'Agentes IA', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
     { id: 'management', label: 'Gestão', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+    { id: 'instagram', label: 'Instagram', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'settings', label: 'Ajustes', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
   ];
 
   const rolePermissions: Record<string, string[]> = {
-    admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
-    company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
+    admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
+    company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
     profissional: ['conversations', 'calendar'],
-    operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents']
+    operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'instagram']
   };
 
   const userRole = user.role?.toLowerCase() || 'operador';
@@ -42,17 +43,16 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
         <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg text-lg">Z</div>
         <span className="text-xl font-bold text-white tracking-tight">ZapAI <span className="text-indigo-400">Pro</span></span>
       </div>
-      
+
       <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto custom-scrollbar">
         {filteredMenuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
-              activeTab === item.id 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${activeTab === item.id
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
                 : 'hover:bg-slate-800 hover:text-white'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-3">
               <svg className={`w-5 h-5 ${activeTab === item.id ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,9 +62,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, onLogo
             </div>
 
             {item.id === 'conversations' && unreadCount > 0 && (
-              <span className={`flex h-5 min-w-[1.25rem] px-1 items-center justify-center rounded-full text-[10px] font-black ${
-                activeTab === 'conversations' ? 'bg-white text-indigo-600' : 'bg-rose-500 text-white animate-pulse'
-              }`}>
+              <span className={`flex h-5 min-w-[1.25rem] px-1 items-center justify-center rounded-full text-[10px] font-black ${activeTab === 'conversations' ? 'bg-white text-indigo-600' : 'bg-rose-500 text-white animate-pulse'
+                }`}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}

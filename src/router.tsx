@@ -14,6 +14,7 @@ import AgentsPage from "@/pages/AgentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import Management from './pages/Management';
 import LeadsPage from './pages/LeadsPage'; // IMPORTADO
+import InstagramManagement from '@/pages/InstagramManagement';
 import GoogleCallback from '@/pages/GoogleCallback';
 
 import { ToastType } from '@/components/Toast';
@@ -24,10 +25,10 @@ interface RoutesProps {
 
 // Adicionado 'leads' nos perfis permitidos
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
-  company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'settings'],
+  admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
+  company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
   profissional: ['conversations', 'calendar'],
-  operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents']
+  operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'instagram']
 };
 
 const Routes: React.FC<RoutesProps> = ({ showToast }) => {
@@ -73,6 +74,7 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
       case 'business': return <BusinessPage showToast={showToast} />;
       case 'agents': return <AgentsPage showToast={showToast} />;
       case 'management': return <Management showToast={showToast} />;
+      case 'instagram': return <InstagramManagement showToast={showToast} />;
       case 'settings': return <SettingsPage showToast={showToast} />;
       default: return <InstancesPage showToast={showToast} />;
     }
@@ -81,8 +83,8 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
   return (
     <RouterRoutes>
       <Route path="/google-callback" element={<GoogleCallback showToast={showToast} />} />
-      <Route 
-        path="*" 
+      <Route
+        path="*"
         element={
           user ? (
             <Layout user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={logout}>
@@ -91,7 +93,7 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
           ) : (
             <Navigate to="/" replace />
           )
-        } 
+        }
       />
     </RouterRoutes>
   );

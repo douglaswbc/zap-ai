@@ -927,6 +927,17 @@ export const api = {
         informacoes: formData.informacoes,
         is_24h: formData.is24h ?? formData.is_24h ?? false,
 
+        // CAMPOS INSTAGRAM:
+        instagram_access_token: formData.instagram_access_token ?? formData.instagramAccessToken,
+        instagram_business_id: formData.instagram_business_id ?? formData.instagramBusinessId,
+        instagram_connected: formData.instagram_connected ?? formData.instagramConnected,
+        instagram_page_id: formData.instagram_page_id ?? formData.instagramPageId,
+
+        // CREDENCIAIS META APP:
+        meta_app_id: formData.meta_app_id ?? formData.metaAppId,
+        meta_app_secret: formData.meta_app_secret ?? formData.metaAppSecret,
+        meta_webhook_verify_token: formData.meta_webhook_verify_token ?? formData.metaVerifyToken,
+
         updated_at: new Date().toISOString()
       }, { onConflict: 'company_id' });
 
@@ -993,6 +1004,77 @@ export const api = {
         if (convErr) throw convErr;
         return newConv.id;
       }
+    }
+  },
+
+  /* ================= INSTAGRAM / META ================= */
+  instagram: {
+    getFeed: async (user: User) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram-feed`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        }
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      return data.feed || [];
+    },
+
+    publishPost: async (user: User, formData: FormData) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram-post`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: formData
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+
+    deletePost: async (user: User, postId: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram-post?postId=${postId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        }
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      return data;
+    }
+  },
+
+  automations: {
+    getRules: async (companyId: string) => {
+      const { data, error } = await supabase
+        .from('instagram_keywords')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    saveRule: async (rule: any) => {
+      const { data, error } = await supabase
+        .from('instagram_keywords')
+        .upsert(rule)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    deleteRule: async (id: string) => {
+      const { error } = await supabase
+        .from('instagram_keywords')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
     }
   },
 
