@@ -213,10 +213,7 @@ export const api = {
         instanceName: name,
         integration: 'WHATSAPP-BAILEYS',
         webhook: {
-          url: GLOBAL_WEBHOOK_URL,
-          byEvents: false,
-          base64: true,
-          events: ['MESSAGES_UPSERT'],
+          events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'INSTANCE_UPDATE'],
         },
       };
 
@@ -236,6 +233,7 @@ export const api = {
         name,
         token: evoData.hash || evoData.instance?.hash,
         company_id: companyId,
+        connection_status: 'close'
       });
 
       if (error) throw error;
@@ -250,11 +248,13 @@ export const api = {
       return data.base64 || data.code || '';
     },
 
-    logout: async (name: string) =>
-      fetch(`${EVO_URL}/instance/logout/${name}`, {
+    logout: async (name: string) => {
+      await fetch(`${EVO_URL}/instance/logout/${name}`, {
         method: 'DELETE',
         headers,
-      }),
+      });
+      await supabase.from('instances').update({ connection_status: 'close' }).eq('name', name);
+    },
 
     restart: async (name: string) =>
       fetch(`${EVO_URL}/instance/restart/${name}`, {

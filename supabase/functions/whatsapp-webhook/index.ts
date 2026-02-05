@@ -14,6 +14,17 @@ serve(async (req) => {
     const instanceName = payload.instance;
     const data = payload.data;
 
+    // 1. Handle Status Updates
+    if (["connection.update", "instance.update"].includes(payload.event)) {
+      const state = data?.state || data?.status || (payload.event === "instance.update" ? data?.instance?.status : null);
+      if (state) {
+        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await supabase.from("instances").update({ connection_status: state.toLowerCase() }).eq("name", instanceName);
+        console.log(`[Status]: Instance ${instanceName} updated to ${state}`);
+      }
+      return new Response("Status atualizado");
+    }
+
     if (payload.event !== "messages.upsert" || !data) return new Response("Ignorado");
 
     const message = data.message;

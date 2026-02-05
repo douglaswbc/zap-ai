@@ -44,13 +44,55 @@ serve(async (req) => {
     const { data: agent } = await supabase.from("agents").select("prompt, knowledge_base, temperature").eq("id", inst.agent_id).single();
     const { data: settings } = await supabase.from("settings").select("*").eq("company_id", inst.company_id).maybeSingle();
 
+    // Detecta se está dentro do horário de funcionamento
+    const nowBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const currentHour = nowBR.getHours();
+    const currentMinute = nowBR.getMinutes();
+    const currentDay = nowBR.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+
+    const daysMap: Record<string, number | number[]> = {
+      'Domingo': 0, 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6,
+      'Segunda a Sexta': [1, 2, 3, 4, 5],
+      'Segunda a Sábado': [1, 2, 3, 4, 5, 6],
+      'Todos os dias': [0, 1, 2, 3, 4, 5, 6]
+    };
+
+    let isWorkingDay = false;
+    const workingDays = settings?.working_days || ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+    workingDays.forEach((day: string) => {
+      const val = daysMap[day];
+      if (Array.isArray(val)) {
+        if (val.includes(currentDay)) isWorkingDay = true;
+      } else if (val === currentDay) {
+        isWorkingDay = true;
+      }
+    });
+
+    const [startH, startM] = (settings?.business_hours_start || '09:00').split(':').map(Number);
+    const [endH, endM] = (settings?.business_hours_end || '18:00').split(':').map(Number);
+
+    const currentTimeMinutes = currentHour * 60 + currentMinute;
+    const startTimeMinutes = startH * 60 + (startM || 0);
+    const endTimeMinutes = endH * 60 + (endM || 0);
+
+    const isWithinHours = currentTimeMinutes >= startTimeMinutes && currentTimeMinutes <= endTimeMinutes;
+    const isOpen = isWorkingDay && isWithinHours;
+
     const businessContext = `
-[CONTEXTO EMPRESA]
-- Horário: ${settings?.business_hours_start} às ${settings?.business_hours_end}
-- Dias: ${settings?.working_days?.join(', ')}
-- Info: ${settings?.informacoes || ''}
+[CONFIGURAÇÕES DA EMPRESA]
+- Status Atual: ${isOpen ? 'ABERTO(A)' : 'FECHADO(A)'}
+- Horário de Funcionamento: ${settings?.business_hours_start || '09:00'} às ${settings?.business_hours_end || '18:00'}
+- Dias de Trabalho: ${workingDays.join(', ')}
+- Informações Institucionais: ${settings?.informacoes || ''}
 - Endereço: ${settings?.address || ''}
 - Website: ${settings?.website || ''}
+- Mensagem de Ausência: ${settings?.offline_message || 'No momento nossa equipe humana não está disponível, mas eu (IA) posso te ajudar com agendamentos e informações gerais.'}
+
+[REGRAS DE ATENDIMENTO]
+1. Se o status da empresa for FECHADO(A), você DEVE informar ao cliente que a equipe humana não está disponível no momento.
+2. Seja cortês e informe que o atendimento humano retornará no horário comercial.
+3. SEMPRE tente ajudar com informações da base de conhecimento ou realize agendamentos, pois você (IA) funciona 24h.
+4. Se estiver fechado, use a "Mensagem de Ausência" como base para sua resposta inicial.
     `;
 
     // 3. Tools Definitions
@@ -145,15 +187,24 @@ serve(async (req) => {
     // 4. OpenAI Loop
     const { data: history } = await supabase.from("messages").select("sender, content").eq("conversation_id", conversation_id).order("timestamp", { ascending: false }).limit(10);
 
-    // Configura fuso horário de Brasília
-    const nowBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    // Configura fuso horário de Brasília (já declarado acima)
     const currentDateTimeStr = nowBR.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 
     let messages = [
       {
         role: "system", content: (agent?.prompt || "") +
           (agent?.knowledge_base ? `\n\n[BASE DE CONHECIMENTO]\n${agent.knowledge_base}` : "") +
-          "\n" + businessContext + `\nData/Hora atual (Brasília): ${currentDateTimeStr}` + `\n\nINSTRUÇÕES IMPORTANTES:
+          "\n" + businessContext +
+          `\nData/Hora atual (Brasília): ${currentDateTimeStr}` +
+          `\n\n[INSTRUÇÕES CRÍTICAS DE FORMATAÇÃO - NUNCA USE MARKDOWN]:
+1. PROIBIDO o uso de caracteres de Markdown como "#", "##", "###" (títulos).
+2. PROIBIDO o uso de negrito com dois asteriscos (ex: **texto**). 
+3. Se precisar dar ênfase, use apenas CAIXA ALTA ou coloque entre aspas. NUNCA use asteriscos.
+4. Use hifens (-) ou números simples (1., 2.) para listas.
+5. Suas respostas devem ser texto puro, limpo e amigável, pronto para leitura instantânea no WhatsApp.
+6. Nunca comece frases com símbolos ou use formatação de código (\`\`\`).
+
+[OUTRAS INSTRUÇÕES]:
 1. Se precisar do ID de um agendamento para gerar pagamento ou verificar status, use a ferramenta 'list_my_appointments' primeiro para encontrar os agendamentos do usuário. NÃO peça o ID ao usuário se você puder encontrá-lo.
 2. Identifique claramente o ID_DO_AGENDAMENTO e o TXID nas suas respostas quando gerá-los.
 3. Se o usuário enviar uma imagem ou PDF, o sistema tentará analisar e você receberá uma mensagem como [Imagem]: [Descrição]. Se for um comprovante de pagamento, use a ferramenta 'check_payment_status' para verificar no banco de dados se o pagamento já caiu.` },
@@ -224,8 +275,7 @@ serve(async (req) => {
               const occupied = existing?.map(a => a.appointment_time.substring(0, 5)) || [];
               const slots = [];
 
-              // Ajusta para o fuso de Brasília para comparar se o horário já passou
-              const nowBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+              // Ajusta para o fuso de Brasília para comparar se o horário já passou (já declarado acima)
               const todayStr = nowBR.toISOString().split('T')[0];
 
               let curr = new Date(`${date}T${prof.start_time}`);

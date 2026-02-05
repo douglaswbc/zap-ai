@@ -1,7 +1,17 @@
 import React from 'react';
 import { Instance } from '../types';
 
-const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onConnect, onRestart, onDelete, onLogout }) => {
+interface InstanceCardProps {
+  instance: Instance;
+  agents: any[];
+  onConnect: (instance: Instance) => void;
+  onRestart: (name: string) => void;
+  onDelete: (name: string) => void;
+  onLogout: (name: string) => void;
+  onUpdateAgent: (name: string, agentId: string | null) => void;
+}
+
+const InstanceCard: React.FC<InstanceCardProps> = ({ instance, agents, onConnect, onRestart, onDelete, onLogout, onUpdateAgent }) => {
   const isConnected = instance.status === 'open';
 
   // Componente de Badge de Status (mesmo de antes)
@@ -25,9 +35,9 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onConnect, onRest
         {/* Espaço da Foto de Perfil ou Ícone */}
         <div className={`w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center transition-all ${isConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500'}`}>
           {instance.profilePicUrl ? (
-            <img 
-              src={instance.profilePicUrl} 
-              alt={instance.name} 
+            <img
+              src={instance.profilePicUrl}
+              alt={instance.name}
               className="w-full h-full object-cover"
               onError={(e) => {
                 // Se a imagem falhar (link expirado da API), volta para o ícone
@@ -47,6 +57,21 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onConnect, onRest
       <p className="text-slate-400 text-sm mb-6 font-medium">
         {instance.phoneNumber || 'Número não vinculado'}
       </p>
+
+      {/* Seletor de Agente */}
+      <div className="mb-6">
+        <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Agente Vinculado</label>
+        <select
+          value={instance.agent_id || ''}
+          onChange={(e) => onUpdateAgent(instance.name, e.target.value || null)}
+          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
+        >
+          <option value="">Sem Agente (Manual)</option>
+          {agents.map(agent => (
+            <option key={agent.id} value={agent.id}>{agent.name}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Botões de Ação (mesmos de antes) */}
       <div className="flex flex-col gap-2 mt-4">
