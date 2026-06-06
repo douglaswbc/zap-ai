@@ -81,22 +81,31 @@ export interface Service {
 export interface Professional {
   id: string;
   name: string;
-  role: string;
   specialty: string;
-  avatar?: string;
-  status: 'AVAILABLE' | 'BUSY' | 'AWAY';
-  company_id: string;
+  google_calendar_id: string;
+  is_active: boolean;
+  created_at: string;
+  company_id?: string;
 }
 
-export interface Appointment {
+export interface Room {
   id: string;
-  contactName: string;
-  serviceName: string;
-  professionalName: string;
-  date: string;
-  time: string;
-  status: 'CONFIRMED' | 'PENDING' | 'CANCELLED';
-  company_id: string;
+  name: string; // Ex: "Sala 1"
+  is_available: boolean;
+  company_id?: string;
+}
+
+export interface AppointmentLog {
+  id: string;
+  client_name: string;
+  client_phone: string;
+  professional_id: string;
+  room_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  google_event_id?: string;
+  company_id?: string;
 }
 
 // Novos tipos Financeiros baseados no SQL fornecido

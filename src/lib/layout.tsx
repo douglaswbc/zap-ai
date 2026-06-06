@@ -15,14 +15,9 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const titles: Record<string, string> = {
-    dashboard: 'Instâncias WhatsApp',
-    conversations: 'Central de Conversas',
+    dashboard: 'Visão Geral',
     calendar: 'Agenda de Atendimentos',
-    billing: 'Cobranças & Faturamento',
-    business: 'Catálogo & Equipe',
-    agents: 'Agentes de IA',
-    management: 'Gestão do Sistema',
-    instagram: 'Gestão Instagram',
+    management: 'Gestão da Clínica',
     settings: 'Configurações'
   };
 
@@ -53,7 +48,6 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar agora gerencia seu próprio botão de menu e ocupa w-full corretamente */}
         <Topbar
           user={user}
           title={titles[activeTab] || 'Painel de Controle'}

@@ -1,134 +1,127 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-
-import {
-  corsHeaders,
-  getNowBR,
-  checkBusinessHours,
-  getBusinessContext
-} from "./helpers.ts";
+import { OpenAI } from "https://esm.sh/openai@4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { sendWhatsAppMessage, corsHeaders, getNowBR, getBusinessContext, checkBusinessHours } from "./helpers.ts";
 import { tools } from "./tools_definitions.ts";
 import { executeTool } from "./tools_execute.ts";
+
+const openAiApiKey = Deno.env.get("OPENAI_API_KEY") ?? "";
+const openai = new OpenAI({ apiKey: openAiApiKey });
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  console.log("--- AI-CHAT START ---");
-
   try {
-    const payload = await req.json();
-    const { conversation_id, instance_id, phone, text_added } = payload;
-    console.log(`[Request]: ConvID=${conversation_id}, InstID=${instance_id}, Phone=${phone}`);
+    const body = await req.json();
+    
+    const phone = body.phone || body.instance?.phone || body.data?.phone || body.chat?.user;
+    const message = body.message || body.text || body.data?.message || body.message?.text?.body || body.text_added;
+    const clientName = body.clientName || body.pushName || body.data?.clientName || "Cliente";
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // 1. Debounce Logic
-    const executionId = new Date().getTime();
-    const { data: conversation } = await supabase.from("conversations").select("temp_buffer, contact_id").eq("id", conversation_id).single();
-    const updatedBuffer = ((conversation?.temp_buffer || "") + " " + (text_added || "")).trim();
-
-    await supabase.from("conversations").update({ temp_buffer: updatedBuffer, last_message_at: new Date(executionId).toISOString() }).eq("id", conversation_id);
-    await new Promise(res => setTimeout(res, 10000));
-
-    const { data: finalCheck } = await supabase.from("conversations").select("temp_buffer, last_message_at, is_human_active").eq("id", conversation_id).single();
-    if (finalCheck.is_human_active || new Date(finalCheck.last_message_at).getTime() > executionId) {
-      console.log("[Debounce]: Skipped");
-      return new Response("Skipped");
+    if (!phone || !message) {
+      return new Response(JSON.stringify({ error: "Parâmetros 'phone' e 'message' são obrigatórios." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const textToProcess = finalCheck.temp_buffer;
-    console.log(`[Process]: Text: "${textToProcess}"`);
-    await supabase.from("conversations").update({ temp_buffer: "" }).eq("id", conversation_id);
+    if (body.fromMe === true || body.data?.fromMe === true) {
+      return new Response(JSON.stringify({ message: "Ignorado" }), { status: 200, headers: corsHeaders });
+    }
 
-    // 2. Context & Business Rules
-    const { data: inst } = await supabase.from("instances").select("name, token, company_id, agent_id").eq("id", instance_id).single();
-    const { data: agent } = await supabase.from("agents").select("prompt, knowledge_base, temperature").eq("id", inst.agent_id).single();
-    const { data: settings } = await supabase.from("settings").select("*").eq("company_id", inst.company_id).maybeSingle();
+    const cleanPhone = phone.replace(/\D/g, "");
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // 1. Carregar Configurações
+    const { data: configRows } = await supabase.from("configuracoes").select("chave, valor");
+    const config: Record<string, string> = {};
+    configRows?.forEach(row => { config[row.chave] = row.valor; });
+
+    // 2. Status da Clínica
     const nowBR = getNowBR();
-    const isOpen = checkBusinessHours(settings);
-    const workingDays = settings?.working_days || ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
-    const businessContext = getBusinessContext(settings, isOpen, workingDays);
-
-    // 3. OpenAI Loop
-    const { data: history } = await supabase.from("messages").select("sender, content").eq("conversation_id", conversation_id).order("timestamp", { ascending: false }).limit(10);
+    const isOpen = checkBusinessHours(config);
+    const businessContext = getBusinessContext(config, isOpen);
     const currentDateTimeStr = nowBR.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 
-    const historyMessages = (history || []).reverse().map(m => ({
-      role: m.sender === "USER" ? "user" : "assistant",
-      content: m.content
-    }));
+    const systemInstruction = `
+Você é a assistente virtual da Clínica de Massoterapia.
+Seu objetivo é agendar sessões de 60 minutos.
+Temos 4 salas e 4 profissionais.
 
-    const systemContent = (agent?.prompt || "") +
-      (agent?.knowledge_base ? `\n\n[BASE DE CONHECIMENTO]\n${agent.knowledge_base}` : "") +
-      "\n" + businessContext +
-      `\nData/Hora atual (Brasília): ${currentDateTimeStr}` +
-      `\n\n[INSTRUÇÕES CRÍTICAS DE FORMATAÇÃO - NUNCA USE MARKDOWN]:
-1. PROIBIDO o uso de caracteres de Markdown como "#", "##", "###" (títulos).
-2. PROIBIDO o uso de negrito com dois asteriscos (ex: **texto**). 
-3. Se precisar dar ênfase, use apenas CAIXA ALTA ou coloque entre aspas. NUNCA use asteriscos.
-4. Use hifens (-) ou números simples (1., 2.) para listas.
-5. Suas respostas devem ser texto puro, limpo e amigável, pronto para leitura instantânea no WhatsApp.
-6. Nunca comece frases com símbolos ou use formatação de código (\`\`\`).
+${config['ai_prompt'] || 'Seja cordial e ajude o cliente a agendar.'}
 
-[OUTRAS INSTRUÇÕES]:
-1. SEMPRE use os IDs (UUIDs) para chamar as ferramentas de agendamento e pagamento. Nunca use nomes de serviços ou profissionais nessas chamadas.
-2. ANTES de criar um novo agendamento, SEMPRE use 'list_my_appointments' para verificar se o usuário já possui agendamentos desde hoje para o futuro. Se houver agendamentos vindouros, informe o usuário e pergunte se ele deseja REAGENDAR (cancelar o atual e criar um novo) ou CANCELAR.
-3. Se o usuário quiser cancelar, use a ferramenta 'cancel_appointment'. O sistema automaticamente removerá do calendário Google dele.
-4. Identifique claramente o ID_DO_AGENDAMENTO e o TXID nas suas respostas quando gerá-los.
-5. Quando agendar ou cancelar, informe ao usuário que o calendário dele será atualizado automaticamente.
-6. Se o usuário enviar uma imagem ou PDF, o sistema tentará analisar e você receberá uma message como [Imagem]: [Descrição]. Se for um comprovante de pagamento, use a ferramenta 'check_payment_status' para verificar no banco de dados se o pagamento já caiu.`;
+${businessContext}
+Data/Hora atual (Brasília): ${currentDateTimeStr}
+
+[REGRAS RÍGIDAS]:
+1. NUNCA use Markdown (negrito com **, títulos com #). Use apenas texto simples.
+2. SEMPRE use as ferramentas para checar disponibilidade antes de confirmar.
+3. Se o cliente perguntar o preço ou serviços, informe que temos massoterapia padrão de 60 minutos (consulte o gerente para valores se não souber).
+`;
+
+    // 3. OpenAI Loop (Sem histórico persistente em tabela 'messages' por enquanto para simplificar, ou mantemos se existir)
+    // Vamos tentar buscar mensagens se a tabela existir, senão seguimos sem.
+    let historyMessages: any[] = [];
+    try {
+        const { data: hist } = await supabase.from("messages_log").select("role, content").eq("phone", cleanPhone).order("created_at", { ascending: false }).limit(6);
+        if (hist) historyMessages = hist.reverse();
+    } catch { /* Tabela opcional */ }
 
     let msgs: any[] = [
-      { role: "system", content: systemContent },
+      { role: "system", content: systemInstruction },
       ...historyMessages,
-      { role: "user", content: textToProcess }
+      { role: "user", content: `Cliente: ${clientName}\nMensagem: ${message}` }
     ];
 
-    const callOpenAI = async (messagesArr: any, toolList: any) => {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${Deno.env.get("OPENAI_KEY")}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "gpt-4o-mini", messages: messagesArr, tools: toolList, temperature: agent?.temperature || 0.7 })
-      });
-      return await res.json();
-    };
+    let response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: msgs,
+      tools: tools,
+      tool_choice: "auto"
+    });
 
-    let response = await callOpenAI(msgs, tools);
+    let finalTextAnswer = response.choices[0].message.content || "";
 
     while (response.choices?.[0]?.message?.tool_calls) {
       const toolCalls = response.choices[0].message.tool_calls;
       msgs.push(response.choices[0].message);
 
       for (const toolCall of toolCalls) {
-        const functionName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
-        const result = await executeTool(functionName, args, supabase, inst, conversation);
-        msgs.push({ tool_call_id: toolCall.id, role: "tool", name: functionName, content: result });
+        const result = await executeTool(toolCall.function.name, JSON.parse(toolCall.function.arguments), supabase, cleanPhone, clientName);
+        msgs.push({ tool_call_id: toolCall.id, role: "tool", name: toolCall.function.name, content: result });
       }
-      response = await callOpenAI(msgs, tools);
-    }
-
-    const reply = response.choices?.[0]?.message?.content;
-
-    if (reply) {
-      await fetch(`${Deno.env.get("EVO_API_URL")}/message/sendText/${inst.name}`, {
-        method: "POST",
-        headers: { "apikey": inst.token, "Content-Type": "application/json" },
-        body: JSON.stringify({ number: phone, text: reply })
+      
+      response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: msgs,
+        tools: tools
       });
-      await supabase.from("messages").insert({ conversation_id, sender: "AI", content: reply });
-      await supabase.from("conversations").update({ last_message: reply.substring(0, 100), last_timestamp: new Date().toISOString() }).eq("id", conversation_id);
+      
+      finalTextAnswer = response.choices[0].message.content || "";
     }
 
-    console.log("--- SUCCESS ---");
-    return new Response("OK");
-  } catch (error) {
-    console.error("ERRO:", error.message);
-    return new Response(error.message, { status: 500 });
+    if (finalTextAnswer) {
+      // Opcional: Salvar no log
+      try {
+          await supabase.from("messages_log").insert([
+              { phone: cleanPhone, role: 'user', content: message },
+              { phone: cleanPhone, role: 'assistant', content: finalTextAnswer }
+          ]);
+      } catch { /* Tabela opcional */ }
+
+      await sendWhatsAppMessage(cleanPhone, finalTextAnswer);
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error: any) {
+    console.error("❌ Erro:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

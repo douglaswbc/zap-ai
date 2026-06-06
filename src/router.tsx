@@ -5,16 +5,10 @@ import Layout from "./lib/layout";
 
 // Páginas
 import LoginPage from '@/pages/Login';
-import InstancesPage from '@/pages/Instances';
-import ConversationsPage from '@/pages/Conversations';
+import Dashboard from '@/pages/Dashboard';
 import CalendarPage from '@/pages/Calendar';
-import BusinessPage from '@/pages/Business';
-import BillingPage from "@/pages/Billing";
-import AgentsPage from "@/pages/AgentsPage";
-import SettingsPage from "@/pages/SettingsPage";
+import SettingsPage from '@/pages/SettingsPage';
 import Management from './pages/Management';
-import LeadsPage from './pages/LeadsPage'; // IMPORTADO
-import InstagramManagement from '@/pages/InstagramManagement';
 import GoogleCallback from '@/pages/GoogleCallback';
 
 import { ToastType } from '@/components/Toast';
@@ -23,12 +17,10 @@ interface RoutesProps {
   showToast: (msg: string, type: ToastType) => void;
 }
 
-// Adicionado 'leads' nos perfis permitidos
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
-  company: ['dashboard', 'conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'management', 'instagram', 'settings'],
-  profissional: ['conversations', 'calendar'],
-  operador: ['conversations', 'leads', 'calendar', 'billing', 'business', 'agents', 'instagram']
+  admin: ['dashboard', 'management', 'calendar', 'settings'],
+  profissional: ['calendar'],
+  operador: ['calendar', 'management']
 };
 
 const Routes: React.FC<RoutesProps> = ({ showToast }) => {
@@ -40,10 +32,10 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
       const userRole = user.role?.toLowerCase();
       const allowedTabs = ROLE_PERMISSIONS[userRole] || [];
       if (!allowedTabs.includes(activeTab)) {
-        setActiveTab(allowedTabs[0] || 'conversations');
+        setActiveTab(allowedTabs[0] || 'calendar');
       }
     }
-  }, [user, activeTab]);
+  }, [user]);
 
   if (loading) {
     return (
@@ -66,17 +58,11 @@ const Routes: React.FC<RoutesProps> = ({ showToast }) => {
     }
 
     switch (activeTab) {
-      case 'dashboard': return <InstancesPage showToast={showToast} />;
-      case 'conversations': return <ConversationsPage showToast={showToast} />;
-      case 'leads': return <LeadsPage showToast={showToast} setActiveTab={setActiveTab} />;
+      case 'dashboard': return <Dashboard showToast={showToast} />;
       case 'calendar': return <CalendarPage showToast={showToast} />;
-      case 'billing': return <BillingPage showToast={showToast} />;
-      case 'business': return <BusinessPage showToast={showToast} />;
-      case 'agents': return <AgentsPage showToast={showToast} />;
       case 'management': return <Management showToast={showToast} />;
-      case 'instagram': return <InstagramManagement showToast={showToast} />;
       case 'settings': return <SettingsPage showToast={showToast} />;
-      default: return <InstancesPage showToast={showToast} />;
+      default: return <Dashboard showToast={showToast} />;
     }
   };
 

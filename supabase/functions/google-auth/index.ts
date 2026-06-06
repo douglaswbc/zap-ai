@@ -7,13 +7,10 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-    // Lidar com requisições OPTIONS (CORS)
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-    }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
-        const { code, userId } = await req.json()
+        const { code } = await req.json()
 
         const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
         const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')
@@ -38,24 +35,24 @@ serve(async (req) => {
             throw new Error(`Erro Google: ${tokens.error_description}`)
         }
 
-        // 2. Inicializar cliente Supabase com a Service Role (para ignorar RLS)
+        if (!tokens.refresh_token) {
+            throw new Error("Não foi recebido um Refresh Token. Tente desvincular o app no painel de segurança do Google e conectar novamente.")
+        }
+
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // 3. Guardar o Refresh Token e marcar como conectado
-        const { error: updateError } = await supabaseAdmin
-            .from('users_profile')
-            .update({
-                google_refresh_token: tokens.refresh_token,
-                google_connected: true,
-                // Opcional: buscar o e-mail do calendário principal do utilizador
-                google_calendar_id: 'primary'
-            })
-            .eq('id', userId)
+        // 2. Guardar o Refresh Token GLOBAL na tabela configuracoes
+        const { error: configError } = await supabaseAdmin
+            .from('configuracoes')
+            .upsert({
+                chave: 'google_refresh_token',
+                valor: tokens.refresh_token
+            }, { onConflict: 'chave' })
 
-        if (updateError) throw updateError
+        if (configError) throw configError
 
         return new Response(JSON.stringify({ success: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

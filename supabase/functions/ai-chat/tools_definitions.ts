@@ -3,7 +3,7 @@ export const tools = [
         type: "function",
         function: {
             name: "list_services",
-            description: "Lista todos os serviços e preços da empresa.",
+            description: "Lista os serviços disponíveis na clínica.",
             parameters: { type: "object", properties: {} }
         }
     },
@@ -11,7 +11,7 @@ export const tools = [
         type: "function",
         function: {
             name: "list_professionals",
-            description: "Lista os profissionais disponíveis.",
+            description: "Lista os profissionais (massoterapeutas) disponíveis.",
             parameters: { type: "object", properties: {} }
         }
     },
@@ -19,15 +19,14 @@ export const tools = [
         type: "function",
         function: {
             name: "get_available_slots",
-            description: "Busca horários disponíveis para um profissional em uma data.",
+            description: "Busca horários disponíveis para agendamento. Se professional_id não for informado, busca horários onde qualquer profissional e sala estejam livres, respeitando o limite de 4 atendimentos simultâneos.",
             parameters: {
                 type: "object",
                 properties: {
-                    professional_id: { type: "string", description: "ID (UUID) do profissional obtido em list_professionals" },
-                    service_id: { type: "string", description: "ID (UUID) do serviço obtido em list_services" },
+                    professional_id: { type: "string", description: "Opcional: ID do profissional. Se omitido, busca disponibilidade geral." },
                     date: { type: "string", description: "Formato YYYY-MM-DD" }
                 },
-                required: ["professional_id", "service_id", "date"]
+                required: ["date"]
             }
         }
     },
@@ -35,44 +34,15 @@ export const tools = [
         type: "function",
         function: {
             name: "create_appointment",
-            description: "Realiza o agendamento de um serviço.",
+            description: "Realiza o agendamento de um serviço. Aloca dinamicamente profissional e sala se não especificados.",
             parameters: {
                 type: "object",
                 properties: {
-                    service_id: { type: "string", description: "ID (UUID) extraído em list_services" },
-                    professional_id: { type: "string", description: "ID (UUID) extraído em list_professionals" },
+                    professional_id: { type: "string", description: "Opcional: ID do profissional." },
                     date: { type: "string" },
                     time: { type: "string", description: "Formato HH:mm" }
                 },
-                required: ["service_id", "professional_id", "date", "time"]
-            }
-        }
-    },
-    {
-        type: "function",
-        function: {
-            name: "generate_payment",
-            description: "Gera um código PIX para pagamento de um agendamento.",
-            parameters: {
-                type: "object",
-                properties: {
-                    appointment_id: { type: "string" }
-                },
-                required: ["appointment_id"]
-            }
-        }
-    },
-    {
-        type: "function",
-        function: {
-            name: "check_payment_status",
-            description: "Verifica se o pagamento de um agendamento foi confirmado.",
-            parameters: {
-                type: "object",
-                properties: {
-                    appointment_id: { type: "string" }
-                },
-                required: ["appointment_id"]
+                required: ["date", "time"]
             }
         }
     },
@@ -80,7 +50,7 @@ export const tools = [
         type: "function",
         function: {
             name: "list_my_appointments",
-            description: "Consulta os agendamentos realizados pelo usuário atual (focando em agendamentos hoje e futuros).",
+            description: "Consulta os agendamentos realizados pelo usuário atual pelo número de telefone.",
             parameters: { type: "object", properties: {} }
         }
     },
