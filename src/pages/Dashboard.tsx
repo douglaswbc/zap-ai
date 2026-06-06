@@ -19,12 +19,13 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
     setIsLoading(true);
     try {
       const [aptData, roomData] = await Promise.all([
-        api.appointments.list(user),
-        api.business.rooms.list(user),
+        api.appointments.list(),
+        api.rooms.list(),
       ]);
       setAppointments(aptData || []);
       setRooms(roomData || []);
     } catch (error) {
+      console.error(error);
       showToast('Erro ao carregar métricas', 'error');
     } finally {
       setIsLoading(false);
@@ -52,13 +53,10 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
     // Supondo que agendamentos confirmados vieram do fluxo do WhatsApp
     const aiConversions = dailyApts.filter(ap => ap.status === 'confirmed').length;
 
-    const estimatedRevenue = dailyApts.reduce((acc, ap) => acc + (ap.price || 0), 0);
-
     return {
       occupancy: currentOccupancy,
       totalDaily,
-      aiConversions,
-      estimatedRevenue
+      aiConversions
     };
   }, [appointments, todayStr, nowTime]);
 
@@ -74,7 +72,6 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
     { label: 'Ocupação de Salas', value: `${metrics.occupancy} de 4`, sub: 'Salas em uso agora', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', color: 'bg-blue-500' },
     { label: 'Atendimentos Hoje', value: metrics.totalDaily, sub: 'Total agendado para o dia', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'bg-emerald-500' },
     { label: 'Conversões IA', value: metrics.aiConversions, sub: 'Via WhatsApp Webhook', icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: 'bg-indigo-500' },
-    { label: 'Faturamento Estimado', value: `R$ ${metrics.estimatedRevenue.toLocaleString('pt-BR')}`, sub: 'Baseado no valor dos serviços', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-amber-500' },
   ];
 
   return (
@@ -82,11 +79,11 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Painel de Controle</h1>
-          <p className="text-slate-500 mt-1">Resumo operacional e financeiro do dia.</p>
+          <p className="text-slate-500 mt-1">Resumo operacional do dia.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {statCards.map((stat, i) => (
           <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-lg transition-all group">
             <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center text-white mb-6 shadow-lg shadow-inner`}>

@@ -108,14 +108,14 @@ const LoginPage: React.FC<LoginProps> = ({ onLogin, showToast }) => {
       <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200">
         <div className="p-12">
           <div className="flex flex-col items-center mb-10">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-6">Z</div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight text-center leading-tight">Plataforma ZapAI</h1>
-            <p className="text-slate-400 mt-2 font-medium">Gestão inteligente de WhatsApp</p>
+            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-6">A</div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight text-center leading-tight">Plataforma Agend AI</h1>
+            <p className="text-slate-400 mt-2 font-medium">Gestão Clínica Inteligente</p>
           </div>
           <LoginForm onLogin={onLogin} showToast={showToast} />
         </div>
       </div>
-      <p className="mt-8 text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">ZapAI Pro v2.4.0</p>
+      <p className="mt-8 text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Agend AI v1.0.0</p>
     </div>
   );
 };

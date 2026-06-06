@@ -85,8 +85,17 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
 
     // 4. Gerar Slots
     const slots = [];
-    let curr = new Date(`${date}T08:00:00-03:00`);
-    const endLimit = new Date(`${date}T20:00:00-03:00`);
+    
+    // Pegar dia da semana (seg, ter, etc)
+    const dayNames = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const dateObj = new Date(`${date}T12:00:00-03:00`);
+    const dayKey = dayNames[dateObj.getDay()];
+
+    const { data: openTime } = await supabase.from('configuracoes').select('valor').eq('chave', 'horario_abertura').single();
+    const { data: closeTime } = await supabase.from('configuracoes').select('valor').eq('chave', 'horario_fechamento').single();
+
+    let curr = new Date(`${date}T${openTime?.valor || '08:00'}:00-03:00`);
+    const endLimit = new Date(`${date}T${closeTime?.valor || '20:00'}:00-03:00`);
 
     while (curr < endLimit) {
         const slotStart = new Date(curr);
@@ -104,6 +113,23 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
             if (concurrent.length < 4) {
                 const availableProfs = profissionais.filter((p: any) => {
                     if (professional_id && p.id !== professional_id) return false;
+                    
+                    // Verificação de Jornada de Trabalho
+                    if (p.jornada_trabalho) {
+                        const jornada = p.jornada_trabalho[dayKey];
+                        if (!jornada || !jornada.ativo) return false;
+                        
+                        const [hIni, mIni] = jornada.inicio.split(':').map(Number);
+                        const [hFim, mFim] = jornada.fim.split(':').map(Number);
+                        
+                        const profStart = new Date(slotStart);
+                        profStart.setHours(hIni, mIni, 0, 0);
+                        const profEnd = new Date(slotStart);
+                        profEnd.setHours(hFim, mFim, 0, 0);
+                        
+                        if (slotStart < profStart || slotEnd > profEnd) return false;
+                    }
+
                     const hasDbConflict = concurrent.some((a: any) => a.professional_id === p.id);
                     if (hasDbConflict) return false;
 

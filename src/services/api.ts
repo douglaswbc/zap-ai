@@ -44,7 +44,8 @@ export const api = {
         nome: p.name || p.nome,
         especialidade: p.specialty || p.especialidade,
         google_calendar_id: p.google_calendar_id,
-        is_active: p.is_active ?? true
+        is_active: p.is_active ?? true,
+        jornada_trabalho: p.jornada_trabalho
       };
       const { data, error } = await supabase.from('profissionais').upsert(payload).select().single();
       if (error) throw error;

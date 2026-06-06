@@ -78,12 +78,21 @@ export interface Service {
   company_id: string;
 }
 
+export interface JornadaTrabalho {
+  [key: string]: {
+    inicio: string;
+    fim: string;
+    ativo: boolean;
+  };
+}
+
 export interface Professional {
   id: string;
   name: string;
   specialty: string;
   google_calendar_id: string;
   is_active: boolean;
+  jornada_trabalho?: JornadaTrabalho;
   created_at: string;
   company_id?: string;
 }

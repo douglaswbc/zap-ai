@@ -37,10 +37,21 @@ const Management: React.FC<ManagementPageProps> = ({ showToast }) => {
 
   useEffect(() => { loadData(); }, [activeTab]);
 
+  const defaultJornada = {
+    seg: { inicio: '08:00', fim: '18:00', ativo: true },
+    ter: { inicio: '08:00', fim: '18:00', ativo: true },
+    qua: { inicio: '08:00', fim: '18:00', ativo: true },
+    qui: { inicio: '08:00', fim: '18:00', ativo: true },
+    sex: { inicio: '08:00', fim: '18:00', ativo: true },
+    sab: { inicio: '08:00', fim: '12:00', ativo: false },
+    dom: { inicio: '08:00', fim: '12:00', ativo: false },
+  };
+
   const handleOpenCreate = () => {
     if (activeTab === 'professionals') {
       setEditingItem({
-        nome: '', especialidade: '', is_active: true, google_calendar_id: ''
+        nome: '', especialidade: '', is_active: true, google_calendar_id: '',
+        jornada_trabalho: defaultJornada
       });
     } else {
       setEditingItem({
@@ -48,6 +59,12 @@ const Management: React.FC<ManagementPageProps> = ({ showToast }) => {
       });
     }
     setIsModalOpen(true);
+  };
+
+  const updateJornada = (dia: string, field: string, value: any) => {
+    const newJornada = { ...editingItem.jornada_trabalho };
+    newJornada[dia] = { ...newJornada[dia], [field]: value };
+    setEditingItem({ ...editingItem, jornada_trabalho: newJornada });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -234,6 +251,45 @@ const Management: React.FC<ManagementPageProps> = ({ showToast }) => {
                       <input value={editingItem.google_calendar_id} onChange={e => setEditingItem({ ...editingItem, google_calendar_id: e.target.value })} className="w-full px-6 py-5 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:border-indigo-500 font-bold transition-all" placeholder="email@group.calendar.google.com" />
                     </div>
                   </>
+                )}
+
+                {activeTab === 'professionals' && (
+                  <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-6 ml-1 tracking-widest">Jornada de Trabalho</label>
+                    <div className="space-y-4">
+                      {['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'].map(dia => {
+                        const config = (editingItem.jornada_trabalho || defaultJornada)[dia];
+                        return (
+                          <div key={dia} className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="w-10 font-black text-[10px] uppercase text-slate-400 text-center">{dia}</div>
+                            <input 
+                              type="checkbox" 
+                              checked={config.ativo} 
+                              onChange={e => updateJornada(dia, 'ativo', e.target.checked)}
+                              className="w-5 h-5 rounded-lg border-slate-200 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer" 
+                            />
+                            <div className="flex-1 flex items-center gap-2">
+                              <input 
+                                type="time" 
+                                value={config.inicio} 
+                                disabled={!config.ativo}
+                                onChange={e => updateJornada(dia, 'inicio', e.target.value)}
+                                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:opacity-50" 
+                              />
+                              <span className="text-slate-300 font-bold">às</span>
+                              <input 
+                                type="time" 
+                                value={config.fim} 
+                                disabled={!config.ativo}
+                                onChange={e => updateJornada(dia, 'fim', e.target.value)}
+                                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:opacity-50" 
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 <div>
