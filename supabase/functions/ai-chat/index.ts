@@ -14,9 +14,10 @@ serve(async (req) => {
   try {
     const body = await req.json();
     
-    const phone = body.phone || body.instance?.phone || body.data?.phone || body.chat?.user;
-    const message = body.message || body.text || body.data?.message || body.message?.text?.body || body.text_added;
-    const clientName = body.clientName || body.pushName || body.data?.clientName || "Cliente";
+    // Suporte para múltiplos formatos de payload (WAScript, Evolution, etc)
+    const phone = body.phone || body.number || body.instance?.phone || body.data?.phone || body.chat?.user;
+    const message = body.message || body.text || body.lastMessage?.text || body.eventDetails?.body || body.data?.message || body.message?.text?.body || body.text_added;
+    const clientName = body.clientName || body.pushName || body.name || body.data?.clientName || "Cliente";
 
     if (!phone || !message) {
       return new Response(JSON.stringify({ error: "Parâmetros 'phone' e 'message' são obrigatórios." }), {
@@ -25,7 +26,13 @@ serve(async (req) => {
       });
     }
 
-    if (body.fromMe === true || body.data?.fromMe === true) {
+    if (
+      body.fromMe === true || 
+      body.data?.fromMe === true || 
+      body.eventDetails?.id?.fromMe === true ||
+      body.message?.fromMe === true
+    ) {
+      console.log("⏭️ Mensagem enviada por mim (IA/Sistema). Ignorando para evitar loop.");
       return new Response(JSON.stringify({ message: "Ignorado" }), { status: 200, headers: corsHeaders });
     }
 

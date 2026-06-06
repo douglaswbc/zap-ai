@@ -1,13 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
- * Envia uma mensagem de texto utilizando a nova API do WAScript
+ * Envia uma mensagem de texto utilizando a API do WAScript
+ * Conforme formato: POST https://api-whatsapp.wascript.com.br/api/enviar-texto/{token}
  */
 export async function sendWhatsAppMessage(phone: string, text: string): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Busca o token do WAScript nas configurações
   const { data: config, error: configError } = await supabase
     .from("configuracoes")
     .select("valor")
@@ -16,22 +18,36 @@ export async function sendWhatsAppMessage(phone: string, text: string): Promise<
 
   if (configError || !config?.valor) {
     console.error("❌ Erro ao recuperar 'wascript_token':", configError);
-    throw new Error("Token WAScript não configurado.");
+    throw new Error("Token WAScript não configurado na tabela 'configuracoes'.");
   }
 
   const token = config.valor;
   const apiUrl = `https://api-whatsapp.wascript.com.br/api/enviar-texto/${token}`;
+  
+  // O WAScript geralmente espera apenas os dígitos do número
   const cleanPhone = phone.replace(/\D/g, "");
+
+  console.log(`🚀 Enviando mensagem via WAScript para ${cleanPhone}...`);
 
   const response = await fetch(apiUrl, {
     method: "POST",
-    headers: { "accept": "application/json", "content-type": "application/json" },
-    body: JSON.stringify({ phone: cleanPhone, message: text })
+    headers: { 
+      "accept": "application/json", 
+      "content-type": "application/json" 
+    },
+    body: JSON.stringify({ 
+      phone: cleanPhone, 
+      message: text 
+    })
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`❌ Falha no WhatsApp WAScript (${response.status}):`, errorBody);
     throw new Error(`Falha no WhatsApp: ${response.statusText}`);
   }
+  
+  console.log("✅ Mensagem enviada com sucesso pelo WAScript.");
 }
 
 export const corsHeaders = {

@@ -18,15 +18,29 @@ serve(async (req) => {
     // Repassa todo o payload para a função ai-chat que agora é o core engine
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: body
+    if (!supabaseServiceKey) {
+      console.error("❌ SUPABASE_SERVICE_ROLE_KEY não encontrada no ambiente.");
+    }
+
+    console.log("🚀 Invocando ai-chat via fetch...");
+    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseServiceKey
+      },
+      body: JSON.stringify(body)
     });
 
-    if (error) {
-        throw error;
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error(`❌ Erro ao invocar ai-chat (${aiResponse.status}):`, errorText);
+      throw new Error(`ai-chat retornou ${aiResponse.status}: ${errorText}`);
     }
+
+    const data = await aiResponse.json();
 
     return new Response(JSON.stringify({ success: true, forwarded: true, aiResponse: data }), {
       status: 200,
