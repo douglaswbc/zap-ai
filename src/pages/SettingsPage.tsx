@@ -56,12 +56,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // Salva cada chave na tabela configuracoes
       const promises = Object.entries(formData).map(([chave, valor]) => {
          if (chave === 'nome' || chave === 'email') return Promise.resolve();
-         // Se o valor for vazio e for o token, talvez não queiramos sobrescrever se já existir?
-         // Mas aqui vamos permitir sobrescrever para que o usuário possa "desconectar" limpando o campo.
-         return api.config.save(chave, valor as string);
+         return api.config.save(chave, (valor as string) || '');
       });
       
       await Promise.all(promises);
@@ -74,10 +71,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
   };
 
   const handleConnectGoogle = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI || (window.location.origin + '/google-callback');
+
+    if (!clientId) {
+      showToast('VITE_GOOGLE_CLIENT_ID não configurado no seu arquivo .env', 'error');
+      return;
+    }
+
     const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
     const options = {
-      redirect_uri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      client_id: clientId,
       access_type: 'offline',
       response_type: 'code',
       prompt: 'consent',

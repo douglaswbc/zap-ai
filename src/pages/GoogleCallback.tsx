@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/services/supabase'; //
-import { ToastType } from '@/components/Toast'; //
+import { supabase } from '@/services/supabase';
+import { ToastType } from '@/components/Toast';
 
 interface GoogleCallbackProps {
   showToast: (msg: string, type: ToastType) => void;
@@ -10,48 +10,39 @@ interface GoogleCallbackProps {
 const GoogleCallback: React.FC<GoogleCallbackProps> = ({ showToast }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const calledRef = useRef(false); // Evita chamadas duplicadas causadas pelo React Strict Mode
+  const calledRef = useRef(false);
 
   useEffect(() => {
     const code = searchParams.get('code');
-    const userId = searchParams.get('state');
+    // Em modo desenvolvimento, o redirect_uri deve ser exatamente o mesmo usado no início do fluxo
+    const redirectUri = window.location.origin + '/google-callback';
 
-    // Impede que a função execute duas vezes seguidas
     if (calledRef.current) return;
 
-    if (code && userId) {
+    if (code) {
       calledRef.current = true;
 
       const finishAuth = async () => {
         try {
-          // Invoca a Edge Function para trocar o código pelos tokens
-          const { error } = await supabase.functions.invoke('google-auth', {
-            body: { code, userId }
+          const { data, error } = await supabase.functions.invoke('google-auth', {
+            body: { code, redirectUri }
           });
 
-          if (error) {
-            throw error;
+          if (error || data?.error) {
+            throw new Error(error?.message || data?.error || 'Erro na troca de tokens');
           }
 
           showToast('Agenda Google conectada com sucesso!', 'success');
-          
-          /**
-           * IMPORTANTE: Usamos window.location.href em vez de navigate.
-           * Isso força um recarregamento completo da aplicação, garantindo que o 
-           * hook useAuth busque os dados atualizados do perfil (google_connected: true)
-           * diretamente do banco de dados.
-           */
           window.location.href = '/settings'; 
         } catch (err: any) {
           console.error('Erro na autenticação Google:', err);
-          showToast('Falha ao conectar com o Google.', 'error');
+          showToast('Falha ao conectar com o Google: ' + err.message, 'error');
           navigate('/settings');
         }
       };
 
       finishAuth();
     } else if (searchParams.has('error')) {
-      // Trata caso o usuário cancele a autorização no Google
       showToast('Acesso ao Google negado pelo usuário.', 'info');
       navigate('/settings');
     }

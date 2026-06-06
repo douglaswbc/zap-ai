@@ -86,15 +86,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ showToast }) => {
   };
 
   const handleConnectGoogle = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI || (window.location.origin + '/google-callback');
+
+    if (!clientId) {
+      showToast('VITE_GOOGLE_CLIENT_ID não configurado no seu arquivo .env', 'error');
+      return;
+    }
+
     const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
     const options = {
-      redirect_uri: import.meta.env.VITE_GOOGLE_REDIRECT_URI,
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      client_id: clientId,
       access_type: 'offline',
       response_type: 'code',
       prompt: 'consent',
       scope: ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.readonly'].join(' '),
-      state: user?.id
+      state: user?.id || 'anonymous'
     };
     window.location.href = `${rootUrl}?${new URLSearchParams(options).toString()}`;
   };

@@ -10,11 +10,16 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
     try {
-        const { code } = await req.json()
+        const { code, redirectUri } = await req.json()
 
         const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')
         const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')
-        const GOOGLE_REDIRECT_URI = Deno.env.get('GOOGLE_REDIRECT_URI')
+        // Usa o redirectUri enviado pelo frontend ou o padrão da env
+        const GOOGLE_REDIRECT_URI = redirectUri || Deno.env.get('GOOGLE_REDIRECT_URI')
+
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+            throw new Error("Configuração Google (Client ID/Secret) ausente no servidor.")
+        }
 
         // 1. Trocar o código pelos Tokens
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -32,11 +37,12 @@ serve(async (req) => {
         const tokens = await tokenResponse.json()
 
         if (tokens.error) {
-            throw new Error(`Erro Google: ${tokens.error_description}`)
+            console.error("Erro Google Token:", tokens)
+            throw new Error(`Erro Google: ${tokens.error_description || tokens.error}`)
         }
 
         if (!tokens.refresh_token) {
-            throw new Error("Não foi recebido um Refresh Token. Tente desvincular o app no painel de segurança do Google e conectar novamente.")
+            throw new Error("Não foi recebido um Refresh Token. Se você já conectou antes, remova a permissão no painel do Google e tente novamente.")
         }
 
         const supabaseAdmin = createClient(
@@ -44,7 +50,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // 2. Guardar o Refresh Token GLOBAL na tabela configuracoes
+        // 2. Guardar o Refresh Token GLOBAL
         const { error: configError } = await supabaseAdmin
             .from('configuracoes')
             .upsert({
