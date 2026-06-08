@@ -47,14 +47,14 @@ const Layout: React.FC<LayoutProps> = ({ user, activeTab, setActiveTab, onLogout
         />
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen">
         <Topbar
           user={user}
           title={titles[activeTab] || 'Painel de Controle'}
           onOpenMenu={() => setIsSidebarOpen(true)}
         />
 
-        <main className="flex-1 overflow-hidden relative animate-in fade-in duration-500">
+        <main className="flex-1 overflow-y-auto relative animate-in fade-in duration-500 custom-scrollbar">
           {children}
         </main>
       </div>

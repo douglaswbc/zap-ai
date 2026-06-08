@@ -5,6 +5,7 @@
 -- DROP TABLE IF EXISTS salas CASCADE;
 -- DROP TABLE IF EXISTS profissionais CASCADE;
 -- DROP TABLE IF EXISTS configuracoes CASCADE;
+-- DROP TABLE IF EXISTS perfis CASCADE;
 
 -- ====================================================================
 -- 2. CRIAÇÃO DAS TABELAS
@@ -18,6 +19,15 @@ CREATE TABLE configuracoes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Tabela de Perfis de Usuários (Admin, Profissional, Operador)
+CREATE TABLE perfis (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    nome TEXT,
+    email TEXT,
+    role TEXT DEFAULT 'admin' CHECK (role IN ('admin', 'profissional', 'operador')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Tabela de Profissionais / Massoterapeutas
 CREATE TABLE profissionais (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -25,6 +35,15 @@ CREATE TABLE profissionais (
     especialidade VARCHAR(255) NOT NULL,
     google_calendar_id VARCHAR(255) UNIQUE NOT NULL,
     is_active BOOLEAN DEFAULT true NOT NULL,
+    jornada_trabalho JSONB DEFAULT '{
+      "seg": {"inicio": "08:00", "fim": "18:00", "ativo": true},
+      "ter": {"inicio": "08:00", "fim": "18:00", "ativo": true},
+      "qua": {"inicio": "08:00", "fim": "18:00", "ativo": true},
+      "qui": {"inicio": "08:00", "fim": "18:00", "ativo": true},
+      "sex": {"inicio": "08:00", "fim": "18:00", "ativo": true},
+      "sab": {"inicio": "08:00", "fim": "12:00", "ativo": false},
+      "dom": {"inicio": "08:00", "fim": "12:00", "ativo": false}
+    }'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -98,6 +117,7 @@ ALTER TABLE configuracoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profissionais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agendamentos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE perfis ENABLE ROW LEVEL SECURITY;
 
 -- --------------------------------------------------------------------
 -- Políticas para Usuários Autenticados (O Gerente logado na interface React)
@@ -128,6 +148,13 @@ TO authenticated
 USING (true) 
 WITH CHECK (true);
 
+-- Políticas para Perfis
+CREATE POLICY "Leitura global para autenticados" ON perfis
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Edição apenas do próprio perfil" ON perfis
+    FOR UPDATE TO authenticated USING (auth.uid() = id);
+
 -- --------------------------------------------------------------------
 -- Políticas para Edge Functions (Uso da IA e Webhooks - Service Role)
 -- --------------------------------------------------------------------
@@ -138,7 +165,7 @@ WITH CHECK (true);
 
 
 -- ====================================================================
--- 6. CONSTRAINT DE CONCORRÊNCIA AVANÇADA (TRIGGER DE VALIDAÇÃO)
+-- 6. TRIGGERS E FUNÇÕES ESPECIAIS
 -- ====================================================================
 
 -- Função que valida as regras de negócio rígidas antes de salvar qualquer agendamento
@@ -189,3 +216,24 @@ CREATE TRIGGER trigger_validar_concorrencia
 BEFORE INSERT OR UPDATE ON agendamentos
 FOR EACH ROW
 EXECUTE FUNCTION validar_concorrencia_agendamento();
+
+-- Trigger para criar perfil automaticamente ao cadastrar usuário no Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.perfis (id, nome, email, role)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'full_name', 'Usuário Novo'), 
+    new.email, 
+    'admin' -- Define como admin por padrão
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
