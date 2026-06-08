@@ -60,8 +60,8 @@ CREATE TABLE agendamentos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_name VARCHAR(255) NOT NULL,
     client_phone VARCHAR(50) NOT NULL,
-    professional_id UUID REFERENCES profissionais(id) ON DELETE RESTRICT NOT NULL,
-    room_id UUID REFERENCES salas(id) ON DELETE RESTRICT NOT NULL,
+    professional_id UUID REFERENCES profissionais(id) ON DELETE CASCADE NOT NULL,
+    room_id UUID REFERENCES salas(id) ON DELETE CASCADE NOT NULL,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     status VARCHAR(50) DEFAULT 'confirmed' NOT NULL, -- 'pending', 'confirmed', 'cancelled'
