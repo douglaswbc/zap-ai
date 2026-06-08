@@ -140,6 +140,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
     setFormData({ ...formData, working_days: updated.join(', ') });
   };
 
+  const handleToggleAI = async (active: boolean) => {
+    const newVal = active ? 'true' : 'false';
+    setFormData(prev => ({ ...prev, is_ai_active: newVal }));
+    try {
+      await api.config.save('is_ai_active', newVal);
+      showToast(`IA ${active ? 'Ativada' : 'Desativada'} com sucesso!`, 'info');
+    } catch (error) {
+      showToast('Erro ao atualizar status da IA', 'error');
+    }
+  };
+
   if (isLoading) return (
     <div className="h-full flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
@@ -198,14 +209,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
               <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, is_ai_active: 'true' })}
+                  onClick={() => handleToggleAI(true)}
                   className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.is_ai_active === 'true' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
                 >
                   Ativada
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, is_ai_active: 'false' })}
+                  onClick={() => handleToggleAI(false)}
                   className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.is_ai_active === 'false' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
                 >
                   Desativada

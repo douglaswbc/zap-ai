@@ -120,25 +120,35 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900 mb-6">Próximos Atendimentos</h3>
           <div className="space-y-4">
-            {appointments.filter(ap => ap.start_time.startsWith(todayStr)).slice(0, 5).map(ap => {
-              const start = new Date(ap.start_time);
-              return (
-                <div key={ap.id} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors border border-transparent hover:border-slate-100">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs uppercase">
-                      {start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {appointments
+              .filter(ap => {
+                const start = new Date(ap.start_time).getTime();
+                return start >= nowTime && ap.status !== 'cancelled';
+              })
+              .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+              .slice(0, 5)
+              .map(ap => {
+                const start = new Date(ap.start_time);
+                return (
+                  <div key={ap.id} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors border border-transparent hover:border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs uppercase">
+                        {start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{ap.client_name}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">{ap.roomName} • {ap.professionalName}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{ap.client_name}</p>
-                      <p className="text-[10px] text-slate-500 font-medium">{ap.roomName} • {ap.professionalName}</p>
-                    </div>
+                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${ap.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                      {ap.status}
+                    </span>
                   </div>
-                  <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${ap.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {ap.status}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            {appointments.filter(ap => new Date(ap.start_time).getTime() >= nowTime && ap.status !== 'cancelled').length === 0 && (
+              <p className="text-center text-slate-400 py-10 text-xs italic text-medium">Nenhum atendimento futuro para hoje.</p>
+            )}
           </div>
         </div>
       </div>
