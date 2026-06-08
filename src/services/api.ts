@@ -115,7 +115,23 @@ export const api = {
   },
 
   /* ================= WHATSAPP / CONVERSAS ================= */
-  // Mantemos o básico de instâncias para o bot funcionar
+  whatsapp: {
+    listLabels: async (token: string) => {
+      const res = await fetch(`https://api-whatsapp.wascript.com.br/api/listar-etiquetas/${token}`, {
+        headers: { 'accept': 'application/json' }
+      });
+      return await res.json();
+    },
+    modifyLabels: async (token: string, phone: string, actions: { labelId: string, type: 'add' | 'remove' }[]) => {
+      const res = await fetch(`https://api-whatsapp.wascript.com.br/api/modificar-etiquetas/${token}`, {
+        method: 'POST',
+        headers: { 'accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: [phone], actions })
+      });
+      return await res.json();
+    }
+  },
+
   instances: {
     list: async () => {
       const { data, error } = await supabase.from('instances').select('*');

@@ -26,8 +26,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
     informacoes_clinica: '',
     google_refresh_token: '',
     wascript_token: '',
-    ai_prompt: ''
+    ai_prompt: '',
+    is_ai_active: 'true'
   });
+
+  const [labels, setLabels] = useState<any[]>([]);
+  const [isLoadingLabels, setIsLoadingLabels] = useState(false);
 
   const loadSettings = async () => {
     setIsLoading(true);
@@ -38,13 +42,34 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
           ...prev,
           ...data,
           nome: user?.nome || user?.name || prev.nome,
-          email: user?.email || prev.email
+          email: user?.email || prev.email,
+          is_ai_active: data.is_ai_active ?? 'true'
         }));
+        
+        if (data.wascript_token) {
+          fetchLabels(data.wascript_token);
+        }
       }
     } catch (error) {
       showToast('Erro ao carregar configurações', 'error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchLabels = async (token: string) => {
+    setIsLoadingLabels(true);
+    try {
+      const data = await api.whatsapp.listLabels(token);
+      if (data && Array.isArray(data)) {
+        setLabels(data);
+      } else if (data && data.labels) {
+        setLabels(data.labels);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar etiquetas:", error);
+    } finally {
+      setIsLoadingLabels(false);
     }
   };
 
@@ -150,20 +175,73 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
           </div>
 
           {/* 2. CONFIGURAÇÃO IA */}
-          <div className="bg-white p-8 rounded-[2.5rem] border-2 border-indigo-100 shadow-sm">
-            <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2 uppercase tracking-tighter">
-              Inteligência Artificial (Prompt)
-            </h3>
-            <textarea
-              rows={6}
-              value={formData.ai_prompt}
-              onChange={e => setFormData({ ...formData, ai_prompt: e.target.value })}
-              placeholder="Instruções de como a IA deve se comportar..."
-              className="w-full px-6 py-5 rounded-[2rem] bg-slate-50 border border-slate-100 outline-none focus:border-indigo-500 font-medium text-sm"
-            />
+          <div className="bg-white p-8 rounded-[2.5rem] border-2 border-indigo-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
+                Inteligência Artificial
+              </h3>
+              <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, is_ai_active: 'true' })}
+                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.is_ai_active === 'true' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Ativada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, is_ai_active: 'false' })}
+                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.is_ai_active === 'false' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Desativada
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Instruções (Prompt)</label>
+              <textarea
+                rows={6}
+                value={formData.ai_prompt}
+                onChange={e => setFormData({ ...formData, ai_prompt: e.target.value })}
+                placeholder="Instruções de como a IA deve se comportar..."
+                className="w-full px-6 py-5 rounded-[2rem] bg-slate-50 border border-slate-100 outline-none focus:border-indigo-500 font-medium text-sm"
+              />
+            </div>
           </div>
 
-          {/* 3. INTEGRAÇÕES */}
+          {/* 3. WHATSAPP LABELS */}
+          {formData.wascript_token && (
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tighter">Etiquetas WhatsApp</h3>
+                {isLoadingLabels && <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />}
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                {labels.length > 0 ? labels.map((label: any) => (
+                  <div 
+                    key={label.id} 
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-100 bg-slate-50"
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: label.color || '#ccc' }} 
+                    />
+                    <span className="text-xs font-bold text-slate-700">{label.name || label.label}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">#{label.id}</span>
+                  </div>
+                )) : (
+                  <p className="text-slate-400 text-xs italic">Nenhuma etiqueta encontrada ou erro na conexão.</p>
+                )}
+              </div>
+              <p className="mt-4 text-[10px] text-slate-400 uppercase font-bold tracking-widest">
+                Nota: As alterações de etiquetas são feitas automaticamente via fluxo de atendimento.
+              </p>
+            </div>
+          )}
+
+          {/* 4. INTEGRAÇÕES */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 tracking-tight">Integrações Técnicas</h3>
             

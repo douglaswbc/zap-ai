@@ -44,6 +44,11 @@ serve(async (req) => {
     const config: Record<string, string> = {};
     configRows?.forEach(row => { config[row.chave] = row.valor; });
 
+    if (config['is_ai_active'] === 'false') {
+      console.log("🤖 IA desativada nas configurações.");
+      return new Response(JSON.stringify({ message: "IA Desativada" }), { status: 200, headers: corsHeaders });
+    }
+
     // 2. Status da Clínica
     const nowBR = getNowBR();
     const isOpen = checkBusinessHours(config);
@@ -66,10 +71,17 @@ ${config['ai_prompt'] || 'Seja cordial e ajude o cliente a agendar.'}
 ${businessContext}
 Data/Hora atual (Brasília): ${currentDateTimeStr}
 
+[REGRAS DE DISPONIBILIDADE]
+1. SEMPRE use a ferramenta 'get_available_slots' para checar o dia e horário solicitado.
+2. A ferramenta retorna um JSON com horários e os nomes dos profissionais disponíveis.
+3. Se o horário solicitado ESTIVER na lista retornada pela ferramenta, ele ESTÁ disponível. NUNCA diga que não há vaga se o horário constar no retorno da ferramenta.
+4. Se o usuário pedir um profissional específico, verifique se o nome dele está na lista 'profissionais_disponiveis' daquele horário.
+5. Se o horário não estiver disponível, sugira APENAS os horários que a ferramenta listou como disponíveis.
+6. NUNCA invente horários ou dê respostas contraditórias (ex: dizer que não tem 18h e logo depois dizer que tem das 15h às 20h).
+
 [REGRAS RÍGIDAS]:
 1. NUNCA use Markdown (negrito com **, títulos com #). Use apenas texto simples.
-2. SEMPRE use as ferramentas para checar disponibilidade antes de confirmar qualquer horário.
-3. Se o cliente perguntar o preço ou serviços, informe que temos massoterapia padrão de 60 minutos.
+2. Se o cliente perguntar o preço ou serviços, informe que temos massoterapia padrão de 60 minutos.
 `;
 
     // 3. OpenAI Loop (Sem histórico persistente em tabela 'messages' por enquanto para simplificar, ou mantemos se existir)
