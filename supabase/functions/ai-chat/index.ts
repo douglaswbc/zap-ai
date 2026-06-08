@@ -55,6 +55,15 @@ serve(async (req) => {
     const businessContext = getBusinessContext(config, isOpen);
     const currentDateTimeStr = nowBR.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 
+    const defaultPrompt = `
+Você é a assistente da Agend AI, especializada em bem-estar através da massoterapia.
+Oferecemos sessões de 60 minutos focadas em relaxamento e alívio de tensões.
+Seu tom deve ser acolhedor, profissional e direto.
+Sempre que um cliente demonstrar interesse, pergunte o dia e horário de preferência.
+Se o cliente não mencionar um profissional, informe que temos especialistas disponíveis e que a escolha pode ser feita por ela ou deixada em aberto.
+Ao final de cada agendamento, confirme os detalhes (Data, Hora e Profissional) de forma clara.
+`;
+
     const systemInstruction = `
 Você é a assistente virtual da Clínica de Massoterapia Agend AI.
 Sua missão é facilitar o agendamento de sessões de 60 minutos.
@@ -66,7 +75,7 @@ Sua missão é facilitar o agendamento de sessões de 60 minutos.
 
 [CONTEXTO DA CLÍNICA]
 Temos 4 salas e 4 profissionais especializados.
-${config['ai_prompt'] || 'Seja cordial e ajude o cliente a agendar.'}
+${config['ai_prompt'] || defaultPrompt}
 
 ${businessContext}
 Data/Hora atual (Brasília): ${currentDateTimeStr}

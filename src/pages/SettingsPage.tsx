@@ -73,6 +73,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ showToast }) => {
       let labelsList = [];
       if (data && Array.isArray(data)) {
         labelsList = data;
+      } else if (data && data.etiquetas) {
+        labelsList = data.etiquetas;
       } else if (data && data.labels) {
         labelsList = data.labels;
       }
