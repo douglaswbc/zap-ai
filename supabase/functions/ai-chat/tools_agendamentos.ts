@@ -19,6 +19,11 @@ export async function handleListProfessionals(supabase: any) {
     return JSON.stringify(data);
 }
 
+export async function handleListProfessionalHours(supabase: any) {
+    const { data } = await supabase.from("profissionais").select("id, nome, jornada_trabalho").eq("is_active", true);
+    return JSON.stringify(data);
+}
+
 export async function handleListMyAppointments(supabase: any, phone: string) {
     const nowBR = getNowBR();
     const { data, error } = await supabase
@@ -86,10 +91,13 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
     // 4. Gerar Slots
     const slots = [];
     
-    // Pegar dia da semana (seg, ter, etc)
+    // Pegar dia da semana (seg, ter, etc) de forma determinística
     const dayNames = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-    const dateObj = new Date(`${date}T12:00:00-03:00`);
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day); // Data local do servidor, mas o getDay() será consistente com a data passada
     const dayKey = dayNames[dateObj.getDay()];
+
+    console.log(`[Slots] Consultando data: ${date}, Dia: ${dayKey}, Profissional: ${professional_id || 'Todos'}`);
 
     const { data: openTime } = await supabase.from('configuracoes').select('valor').eq('chave', 'horario_abertura').single();
     const { data: closeTime } = await supabase.from('configuracoes').select('valor').eq('chave', 'horario_fechamento').single();
@@ -126,12 +134,20 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
                         const shiftStartMin = hIni * 60 + mIni;
                         const shiftEndMin = hFim * 60 + mFim;
 
-                        // Converter slot para minutos do dia em Brasília
-                        const slotStartBR = new Date(slotStart.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-                        const slotEndBR = new Date(slotEnd.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                        const getMin = (d: Date) => {
+                            const parts = new Intl.DateTimeFormat("pt-BR", {
+                                timeZone: "America/Sao_Paulo",
+                                hour: "numeric",
+                                minute: "numeric",
+                                hour12: false,
+                            }).formatToParts(d);
+                            const h = parseInt(parts.find(p => p.type === 'hour')!.value);
+                            const m = parseInt(parts.find(p => p.type === 'minute')!.value);
+                            return h * 60 + m;
+                        };
                         
-                        const slotStartMin = slotStartBR.getHours() * 60 + slotStartBR.getMinutes();
-                        const slotEndMin = slotEndBR.getHours() * 60 + slotEndBR.getMinutes();
+                        const slotStartMin = getMin(slotStart);
+                        const slotEndMin = getMin(slotEnd);
                         
                         if (slotStartMin < shiftStartMin || slotEndMin > shiftEndMin) return false;
                     }
@@ -154,7 +170,12 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
 
                 if (availableProfs.length > 0 && availableRooms.length > 0) {
                     slots.push({
-                        horario: slotStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        horario: slotStart.toLocaleTimeString('pt-BR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            hour12: false,
+                            timeZone: 'America/Sao_Paulo'
+                        }),
                         profissionais_disponiveis: availableProfs.map(p => p.nome)
                     });
                 }
@@ -167,7 +188,7 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
 }
 
 export async function handleCreateAppointment(supabase: any, args: any, phone: string, name: string) {
-    const { professional_id, date, time } = args;
+    const { professional_id, date, time } = args; // professional_id pode vir como UUID ou Nome (ex: "Samara")
     const start_time = new Date(`${date}T${time}:00-03:00`);
     
     const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'duracao_sessao_minutos').single();
@@ -177,6 +198,13 @@ export async function handleCreateAppointment(supabase: any, args: any, phone: s
     const { data: profissionais } = await supabase.from('profissionais').select('*').eq('is_active', true);
     const { data: salas } = await supabase.from('salas').select('*').eq('is_available', true);
 
+    if (!profissionais?.length || !salas?.length) return "Erro: Sem profissionais ou salas disponíveis.";
+
+    // Pegar dia da semana para validar jornada
+    const dayNames = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const dayKey = dayNames[start_time.getDay()];
+
+    // 1. Buscar Agendamentos no DB
     const { data: concurrent } = await supabase.from('agendamentos')
         .select('*')
         .neq('status', 'cancelled')
@@ -188,17 +216,83 @@ export async function handleCreateAppointment(supabase: any, args: any, phone: s
         return (start_time < aEnd && end_time > aStart);
     }) || [];
 
-    if (overlapping.length >= 4) return "Erro: Limite de 4 salas ocupadas atingido.";
+    if (overlapping.length >= 4) return "Erro: Limite de 4 salas ocupadas atingido para este horário.";
+
+    // 2. Google Calendar check para consistência final
+    const accessToken = await getGoogleAccessToken(supabase);
+    let googleFreeBusy: any = {};
+    if (accessToken) {
+        const startISO = start_time.toISOString();
+        const endISO = end_time.toISOString();
+        const calIds = profissionais.map((p: any) => p.google_calendar_id).filter(Boolean);
+        if (calIds.length > 0) {
+            googleFreeBusy = await checkGoogleAvailability(accessToken, calIds, startISO, endISO);
+        }
+    }
+
+    const getMin = (d: Date) => {
+        const parts = new Intl.DateTimeFormat("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            hour: "numeric",
+            minute: "numeric",
+            hour12: false,
+        }).formatToParts(d);
+        const h = parseInt(parts.find(p => p.type === 'hour')!.value);
+        const m = parseInt(parts.find(p => p.type === 'minute')!.value);
+        return h * 60 + m;
+    };
+
+    const slotStartMin = getMin(start_time);
+    const slotEndMin = getMin(end_time);
+
+    console.log(`[Create] Validando reserva: ${date} ${time}, Profissional: ${professional_id}, Dia: ${dayKey}`);
 
     const availableProfs = profissionais.filter((p: any) => {
-        if (professional_id && p.id !== professional_id) return false;
-        return !overlapping.some((a: any) => a.professional_id === p.id);
-    });
-    if (availableProfs.length === 0) return "Erro: Profissional ocupado.";
-    const selectedProf = availableProfs[0];
+        // Suporte flexível para ID ou Nome
+        if (professional_id) {
+            const isMatchId = p.id === professional_id;
+            const isMatchName = p.nome.toLowerCase().includes(professional_id.toLowerCase());
+            if (!isMatchId && !isMatchName) return false;
+        }
+        
+        // Validação de Jornada (Shift)
+        if (p.jornada_trabalho) {
+            const jornada = p.jornada_trabalho[dayKey];
+            if (!jornada || !jornada.ativo) return false;
+            
+            const [hIni, mIni] = jornada.inicio.split(':').map(Number);
+            const [hFim, mFim] = jornada.fim.split(':').map(Number);
+            const shiftStartMin = hIni * 60 + mIni;
+            const shiftEndMin = hFim * 60 + mFim;
 
-    const availableRooms = salas.filter((r: any) => !overlapping.some((a: any) => a.room_id === r.id));
-    if (availableRooms.length === 0) return "Erro: Sem salas livres.";
+            if (slotStartMin < shiftStartMin || slotEndMin > shiftEndMin) return false;
+        }
+
+        // Conflito no Banco de Dados
+        const hasDbConflict = overlapping.some((a: any) => a.professional_id === p.id);
+        if (hasDbConflict) return false;
+
+        // Conflito no Google Calendar
+        if (p.google_calendar_id && googleFreeBusy[p.google_calendar_id]) {
+            const busy = googleFreeBusy[p.google_calendar_id].busy || [];
+            if (busy.some((b: any) => {
+                const bStart = new Date(b.start);
+                const bEnd = new Date(b.end);
+                return (start_time < bEnd && end_time > bStart);
+            })) return false;
+        }
+
+        return true;
+    });
+
+    if (availableProfs.length === 0) {
+        return `Erro: O profissional ${professional_id || ''} não está disponível ou fora do horário de atendimento neste momento (Turno: ${dayKey}).`;
+    }
+
+    const selectedProf = availableProfs[0];
+    const availableRooms = salas.filter((r: any) => !overlapping.some((a: any) => r.id === a.room_id));
+    
+    if (availableRooms.length === 0) return "Erro: Todas as salas físicas estão ocupadas neste horário.";
     const selectedRoom = availableRooms[0];
 
     const { data, error } = await supabase.from("agendamentos").insert({
@@ -213,5 +307,5 @@ export async function handleCreateAppointment(supabase: any, args: any, phone: s
 
     if (!error && data) await triggerGoogleSync(data.id);
 
-    return error ? `Erro: ${error.message}` : `Sucesso! Agendamento realizado para ${selectedProf.nome} na ${selectedRoom.nome}. ID: ${data.id}`;
+    return error ? `Erro: ${error.message}` : `Sucesso! Agendamento realizado com ${selectedProf.nome} na ${selectedRoom.nome}.`;
 }

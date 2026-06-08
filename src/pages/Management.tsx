@@ -168,6 +168,31 @@ const Management: React.FC<ManagementPageProps> = ({ showToast }) => {
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-1">{p.nome}</h3>
                 <p className="text-xs text-indigo-500 font-bold uppercase mb-4">{p.especialidade}</p>
+                
+                {/* Jornada de Trabalho Visual */}
+                <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Horários de Atendimento
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'].map(dia => {
+                      const jornada = p.jornada_trabalho?.[dia];
+                      if (!jornada?.ativo) return null;
+                      return (
+                        <div key={dia} className="flex flex-col items-center p-1.5 bg-white rounded-lg border border-slate-100 shadow-sm">
+                          <span className="text-[9px] font-black uppercase text-indigo-600 leading-none mb-1">{dia}</span>
+                          <span className="text-[8px] font-bold text-slate-500 leading-none">{jornada.inicio.split(':')[0]}h</span>
+                          <span className="text-[8px] font-bold text-slate-500 leading-none">{jornada.fim.split(':')[0]}h</span>
+                        </div>
+                      );
+                    })}
+                    {Object.values(p.jornada_trabalho || {}).every((j: any) => !j.ativo) && (
+                      <p className="col-span-4 text-[10px] text-slate-400 font-medium italic">Nenhum horário configurado</p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-2 mb-8">
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

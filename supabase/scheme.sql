@@ -108,6 +108,25 @@ CREATE INDEX idx_agendamentos_room_id ON agendamentos (room_id);
 CREATE INDEX idx_profissionais_ativos ON profissionais (is_active) WHERE is_active = true;
 
 
+-- Tabela de Histórico de Mensagens (Memória do Agente de IA)
+CREATE TABLE messages_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone VARCHAR(50) NOT NULL,
+    role VARCHAR(20) NOT NULL, -- 'user', 'assistant', 'system'
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX idx_messages_log_phone ON messages_log(phone, created_at DESC);
+
+-- Tabela de Fila para Agrupamento de Mensagens (Debounce)
+CREATE TABLE ai_queue (
+    phone VARCHAR(50) PRIMARY KEY,
+    messages TEXT[] DEFAULT '{}',
+    client_name VARCHAR(255),
+    last_update TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    is_processing BOOLEAN DEFAULT false
+);
+
 -- ====================================================================
 -- 5. SEGURANÇA (ROW LEVEL SECURITY - RLS)
 -- ====================================================================
@@ -221,6 +240,20 @@ CREATE TRIGGER trigger_validar_concorrencia
 BEFORE INSERT OR UPDATE ON agendamentos
 FOR EACH ROW
 EXECUTE FUNCTION validar_concorrencia_agendamento();
+
+-- Função RPC para Enfileirar Mensagens com Segurança (Debounce)
+CREATE OR REPLACE FUNCTION enqueue_ai_message(p_phone TEXT, p_message TEXT, p_name TEXT)
+RETURNS void AS $$
+BEGIN
+    INSERT INTO ai_queue (phone, messages, client_name, last_update, is_processing)
+    VALUES (p_phone, ARRAY[p_message], p_name, now(), false)
+    ON CONFLICT (phone) DO UPDATE
+    SET messages = ai_queue.messages || p_message,
+        last_update = now(),
+        client_name = p_name,
+        is_processing = false;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Trigger para criar perfil automaticamente ao cadastrar usuário no Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()

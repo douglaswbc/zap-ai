@@ -86,7 +86,8 @@ Data/Hora atual (Brasília): ${currentDateTimeStr}
 3. Se o horário solicitado ESTIVER na lista retornada pela ferramenta, ele ESTÁ disponível. NUNCA diga que não há vaga se o horário constar no retorno da ferramenta.
 4. Se o usuário pedir um profissional específico, verifique se o nome dele está na lista 'profissionais_disponiveis' daquele horário.
 5. Se o horário não estiver disponível, sugira APENAS os horários que a ferramenta listou como disponíveis.
-6. NUNCA invente horários ou dê respostas contraditórias (ex: dizer que não tem 18h e logo depois dizer que tem das 15h às 20h).
+6. Use a ferramenta 'list_professional_hours' para conhecer a jornada de trabalho semanal dos profissionais. Isso ajuda a explicar ao cliente por que um profissional não atende em certos dias ou horas.
+7. NUNCA invente horários ou dê respostas contraditórias (ex: dizer que não tem 18h e logo depois dizer que tem das 15h às 20h).
 
 [REGRAS RÍGIDAS]:
 1. NUNCA use Markdown (negrito com **, títulos com #). Use apenas texto simples.

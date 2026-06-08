@@ -11,7 +11,15 @@ export const tools = [
         type: "function",
         function: {
             name: "list_professionals",
-            description: "Lista os profissionais (massoterapeutas) disponíveis.",
+            description: "Lista os profissionais (massoterapeutas) disponíveis e suas especialidades.",
+            parameters: { type: "object", properties: {} }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "list_professional_hours",
+            description: "Consulta a jornada de trabalho semanal de todos os profissionais (horários de entrada e saída por dia). Use isso para entender os turnos teóricos antes de oferecer horários.",
             parameters: { type: "object", properties: {} }
         }
     },
