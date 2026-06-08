@@ -135,6 +135,28 @@ Data/Hora atual (Brasília): ${currentDateTimeStr}
       } catch { /* Tabela opcional */ }
 
       await sendWhatsAppMessage(cleanPhone, finalTextAnswer);
+
+      // --- Lógica de Etiquetas (Novo Lead) ---
+      try {
+        if (config['wascript_token'] && config['label_id_novo_lead']) {
+          // Só aplica a etiqueta se for a primeira mensagem (histórico vazio)
+          if (historyMessages.length === 0) {
+            console.log(`🏷️ Aplicando etiqueta de Novo Lead (${config['label_id_novo_lead']}) para ${cleanPhone}`);
+            fetch(`https://api-whatsapp.wascript.com.br/api/modificar-etiquetas/${config['wascript_token']}`, {
+              method: 'POST',
+              headers: { 'accept': 'application/json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                phone: [cleanPhone], 
+                actions: [{ labelId: config['label_id_novo_lead'], type: 'add' }] 
+              })
+            }).catch(err => console.error("Erro etiqueta lead:", err));
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao processar etiqueta lead:", e);
+      }
+      // ----------------------------------------
+
     } else if (finalTextAnswer.includes("[IGNORE]")) {
       console.log("🤫 Mensagem ignorada por falta de intenção relacionada à clínica.");
     }
