@@ -39,19 +39,20 @@ const Dashboard: React.FC<DashboardProps> = ({ showToast }) => {
   const nowTime = now.getTime();
 
   const metrics = useMemo(() => {
-    const dailyApts = appointments.filter(ap => ap.start_time.startsWith(todayStr));
+    // Filtrar apenas agendamentos que NÃO estão cancelados para as métricas operacionais
+    const activeDailyApts = appointments.filter(ap => ap.start_time.startsWith(todayStr) && ap.status !== 'cancelled');
     
-    // Ocupação atual (agendamento ocorrendo agora)
-    const currentOccupancy = dailyApts.filter(ap => {
+    // Ocupação atual (agendamento ocorrendo agora e NÃO cancelado)
+    const currentOccupancy = activeDailyApts.filter(ap => {
       const start = new Date(ap.start_time).getTime();
       const end = new Date(ap.end_time).getTime();
       return nowTime >= start && nowTime < end;
     }).length;
 
-    const totalDaily = dailyApts.length;
+    const totalDaily = activeDailyApts.length;
     
     // Supondo que agendamentos confirmados vieram do fluxo do WhatsApp
-    const aiConversions = dailyApts.filter(ap => ap.status === 'confirmed').length;
+    const aiConversions = activeDailyApts.filter(ap => ap.status === 'confirmed').length;
 
     return {
       occupancy: currentOccupancy,

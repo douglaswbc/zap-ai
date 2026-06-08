@@ -362,6 +362,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ showToast }) => {
                 
                 {filteredAppointments
                   .filter(ap => (viewMode === 'professional' ? ap.professional_id === col.id : ap.room_id === col.id))
+                  .filter(ap => ap.status !== 'cancelled') // Ocultar cancelados da visão em colunas para "liberar" o espaço visual
                   .map(ap => {
                     const start = new Date(ap.start_time);
                     const end = new Date(ap.end_time);

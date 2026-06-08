@@ -174,32 +174,37 @@ RETURNS TRIGGER AS $$
 DECLARE
     total_agendamentos_horario INT;
 BEGIN
+    -- Só validamos conflitos se o agendamento NÃO estiver cancelado
+    IF NEW.status = 'cancelled' THEN
+        RETURN NEW;
+    END IF;
+
     -- 1. Verifica se o mesmo profissional já está ocupado nesse intervalo de tempo
     IF EXISTS (
         SELECT 1 FROM agendamentos 
         WHERE professional_id = NEW.professional_id 
-          AND status = 'confirmed'
+          AND status != 'cancelled'
           AND id <> NEW.id
           AND (NEW.start_time, NEW.end_time) OVERLAPS (start_time, end_time)
     ) THEN
-        RAISE EXCEPTION 'O profissional selecionado já possui um agendamento neste horário.';
+        RAISE EXCEPTION 'O profissional selecionado já possui um agendamento (confirmado ou pendente) neste horário.';
     END IF;
 
     -- 2. Verifica se a mesma sala física já está ocupada nesse intervalo de tempo
     IF EXISTS (
         SELECT 1 FROM agendamentos 
         WHERE room_id = NEW.room_id 
-          AND status = 'confirmed'
+          AND status != 'cancelled'
           AND id <> NEW.id
           AND (NEW.start_time, NEW.end_time) OVERLAPS (start_time, end_time)
     ) THEN
-        RAISE EXCEPTION 'A sala física selecionada já está ocupada neste horário.';
+        RAISE EXCEPTION 'A sala física selecionada já está ocupada (agendamento confirmado ou pendente) neste horário.';
     END IF;
 
     -- 3. Garante o teto estrutural de concorrência simultânea (Máximo 4 agendamentos ao mesmo tempo)
     SELECT COUNT(*) INTO total_agendamentos_horario 
     FROM agendamentos 
-    WHERE status = 'confirmed'
+    WHERE status != 'cancelled'
       AND id <> NEW.id
       AND (NEW.start_time, NEW.end_time) OVERLAPS (start_time, end_time);
 
