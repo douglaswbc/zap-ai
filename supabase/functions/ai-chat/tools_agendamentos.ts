@@ -97,13 +97,15 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
     let curr = new Date(`${date}T${openTime?.valor || '08:00'}:00-03:00`);
     const endLimit = new Date(`${date}T${closeTime?.valor || '20:00'}:00-03:00`);
 
+    const now = new Date();
+
     while (curr < endLimit) {
         const slotStart = new Date(curr);
         const slotEnd = new Date(curr.getTime() + duration * 60000);
         const slotStartISO = slotStart.toISOString();
         const slotEndISO = slotEnd.toISOString();
 
-        if (slotStart > nowBR) {
+        if (slotStart > now) {
             const concurrent = existingApts?.filter((a: any) => {
                 const aStart = new Date(a.start_time);
                 const aEnd = new Date(a.end_time);
@@ -114,20 +116,24 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
                 const availableProfs = profissionais.filter((p: any) => {
                     if (professional_id && p.id !== professional_id) return false;
                     
-                    // Verificação de Jornada de Trabalho
+                    // Verificação de Jornada de Trabalho (Segura para fuso horário)
                     if (p.jornada_trabalho) {
                         const jornada = p.jornada_trabalho[dayKey];
                         if (!jornada || !jornada.ativo) return false;
                         
                         const [hIni, mIni] = jornada.inicio.split(':').map(Number);
                         const [hFim, mFim] = jornada.fim.split(':').map(Number);
+                        const shiftStartMin = hIni * 60 + mIni;
+                        const shiftEndMin = hFim * 60 + mFim;
+
+                        // Converter slot para minutos do dia em Brasília
+                        const slotStartBR = new Date(slotStart.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                        const slotEndBR = new Date(slotEnd.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
                         
-                        const profStart = new Date(slotStart);
-                        profStart.setHours(hIni, mIni, 0, 0);
-                        const profEnd = new Date(slotStart);
-                        profEnd.setHours(hFim, mFim, 0, 0);
+                        const slotStartMin = slotStartBR.getHours() * 60 + slotStartBR.getMinutes();
+                        const slotEndMin = slotEndBR.getHours() * 60 + slotEndBR.getMinutes();
                         
-                        if (slotStart < profStart || slotEnd > profEnd) return false;
+                        if (slotStartMin < shiftStartMin || slotEndMin > shiftEndMin) return false;
                     }
 
                     const hasDbConflict = concurrent.some((a: any) => a.professional_id === p.id);
@@ -147,7 +153,10 @@ export async function handleGetAvailableSlots(supabase: any, args: any) {
                 const availableRooms = salas.filter((r: any) => !concurrent.some((a: any) => a.room_id === r.id));
 
                 if (availableProfs.length > 0 && availableRooms.length > 0) {
-                    slots.push(slotStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                    slots.push({
+                        horario: slotStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        profissionais_disponiveis: availableProfs.map(p => p.nome)
+                    });
                 }
             }
         }

@@ -51,10 +51,16 @@ serve(async (req) => {
     const currentDateTimeStr = nowBR.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
 
     const systemInstruction = `
-Você é a assistente virtual da Clínica de Massoterapia.
-Seu objetivo é agendar sessões de 60 minutos.
-Temos 4 salas e 4 profissionais.
+Você é a assistente virtual da Clínica de Massoterapia Agend AI.
+Sua missão é facilitar o agendamento de sessões de 60 minutos.
 
+[REGRAS DE INTENÇÃO]
+1. Se o usuário falar sobre assuntos que não possuem relação com a clínica, serviços ou agendamentos, responda estritamente com a palavra: [IGNORE]
+2. Se o usuário apenas cumprimentar (Oi, Olá, Bom dia), seja cordial e pergunte como pode ajudar com o agendamento.
+3. Se houver intenção de agendar, consultar horários, preços ou serviços, siga o fluxo normal.
+
+[CONTEXTO DA CLÍNICA]
+Temos 4 salas e 4 profissionais especializados.
 ${config['ai_prompt'] || 'Seja cordial e ajude o cliente a agendar.'}
 
 ${businessContext}
@@ -62,8 +68,8 @@ Data/Hora atual (Brasília): ${currentDateTimeStr}
 
 [REGRAS RÍGIDAS]:
 1. NUNCA use Markdown (negrito com **, títulos com #). Use apenas texto simples.
-2. SEMPRE use as ferramentas para checar disponibilidade antes de confirmar.
-3. Se o cliente perguntar o preço ou serviços, informe que temos massoterapia padrão de 60 minutos (consulte o gerente para valores se não souber).
+2. SEMPRE use as ferramentas para checar disponibilidade antes de confirmar qualquer horário.
+3. Se o cliente perguntar o preço ou serviços, informe que temos massoterapia padrão de 60 minutos.
 `;
 
     // 3. OpenAI Loop (Sem histórico persistente em tabela 'messages' por enquanto para simplificar, ou mantemos se existir)
@@ -107,7 +113,7 @@ Data/Hora atual (Brasília): ${currentDateTimeStr}
       finalTextAnswer = response.choices[0].message.content || "";
     }
 
-    if (finalTextAnswer) {
+    if (finalTextAnswer && !finalTextAnswer.includes("[IGNORE]")) {
       // Opcional: Salvar no log
       try {
           await supabase.from("messages_log").insert([
@@ -117,6 +123,8 @@ Data/Hora atual (Brasília): ${currentDateTimeStr}
       } catch { /* Tabela opcional */ }
 
       await sendWhatsAppMessage(cleanPhone, finalTextAnswer);
+    } else if (finalTextAnswer.includes("[IGNORE]")) {
+      console.log("🤫 Mensagem ignorada por falta de intenção relacionada à clínica.");
     }
 
     return new Response(JSON.stringify({ success: true }), {
