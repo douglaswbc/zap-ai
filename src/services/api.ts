@@ -130,28 +130,5 @@ export const api = {
       });
       return await res.json();
     }
-  },
-
-  instances: {
-    list: async () => {
-      const { data, error } = await supabase.from('instances').select('*');
-      if (error) throw error;
-      return data || [];
-    },
-    connect: async (instanceName: string) => {
-      const res = await fetch(`${EVO_URL}/instance/connect/${instanceName}`, { headers });
-      const data = await res.json();
-      return data.base64 || data.code || '';
-    }
-  },
-  
-  conversations: {
-    list: async () => {
-      // No novo schema, conversas são baseadas no client_phone dos agendamentos
-      // mas podemos manter a tabela de conversas se ela ainda existir no banco
-      const { data, error } = await supabase.from('conversations').select('*, contacts(*)').order('last_timestamp', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    }
   }
 };
